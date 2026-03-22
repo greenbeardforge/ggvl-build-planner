@@ -1279,7 +1279,7 @@ function BuildPlanner() {
                 color: appMode==='catalogue' ? C.glow : 'rgba(232,184,109,.25)',
                 textShadow: appMode==='catalogue' ? '0 0 22px rgba(232,184,109,.7), 0 0 8px rgba(200,151,58,.5)' : 'none',
                 transition:'color .2s, text-shadow .2s', lineHeight:'inherit'
-              }}>Catalogue 🕮</button>
+              }}>Catalogue {window.innerWidth < 768 ? '✒' : '🕮'}</button>
             </h1>
             <div style={S.subtitle}>
               Gwylim, Gunak, Vicho, & Lain —{' '}
