@@ -122,9 +122,6 @@
 <!-- ── GGVL Sheets Sync config ────────────────────────────────────────────── -->
 <script>
   var GGVL_ENDPOINT    = 'https://script.google.com/macros/s/AKfycbxx51FOmdxmjXYUs5K96RwR9kn1_2IWIYDGa_1YLHstEes7SDpv3f55oOtPozxKkzo3Zw/exec';
-  var GGVL_CACHE_KEY   = 'ggvl_catalogue_cache';
-  var GGVL_CACHE_TS    = 'ggvl_catalogue_ts';
-  var GGVL_CACHE_TTL   = 86400000; // 24 hours in ms
 </script>
 
 <script type="text/babel">
@@ -494,11 +491,11 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
       R('div', { onMouseDown: startResize, style:{ position:'absolute', top:0, right:0, width:5, height:'100%', cursor:'col-resize', zIndex:10 } }),
       R('div', { style:{ position:'absolute', bottom:6, left:0, right:0, textAlign:'center', fontSize:10,
         fontFamily:"'Crimson Pro',serif", letterSpacing:'.04em', pointerEvents:'none',
-        color: dataStatus==='live' ? '#34a853' : dataStatus==='cached' ? '#edbe00' : dataStatus==='error' ? '#c05040' : C.inkLight,
-        opacity: dataStatus==='baked' ? 0.5 : 0.85 } },
-        dataStatus==='live'   ? '● live from Sheets' :
-        dataStatus==='cached' ? '● cached (< 24h)'   :
-        dataStatus==='error'  ? '⚠ offline — no data' :
+        color: dataStatus==='live' ? '#34a853' : dataStatus==='error' ? '#c05040' : C.inkLight,
+        opacity: 0.85 } },
+        dataStatus==='live'    ? '● live from Sheets' :
+        dataStatus==='error'   ? '⚠ offline — no data' :
+        dataStatus==='loading' ? '◌ loading…' :
         'v4.8'
       )
     ),
@@ -624,10 +621,10 @@ function BuildPlanner() {
   const [appMode,      setAppMode]     = useState('planner');
   const [guildOpen,    setGuildOpen]   = useState(false);
 
-  // ── Catalogue data: live fetch with 24hr localStorage cache ───────────────
+  // ── Catalogue data: always-fetch on load ──────────────────────────────────
   const [catalogueData,   setCatalogueData]   = useState([]);
   const [rawData,         setRawData]         = useState([]);
-  const [catalogueStatus, setCatalogueStatus] = useState('baked');
+  const [catalogueStatus, setCatalogueStatus] = useState('loading');
 
   function transformItems(items) {
     return items.map(item => {
@@ -644,23 +641,6 @@ function BuildPlanner() {
   useEffect(() => {
     let cancelled = false;
     async function loadCatalogue() {
-      // 1. Check cache
-      try {
-        const cached = localStorage.getItem(GGVL_CACHE_KEY);
-        const ts     = parseInt(localStorage.getItem(GGVL_CACHE_TS) || '0', 10);
-        if (cached && (Date.now() - ts) < GGVL_CACHE_TTL) {
-          const parsed = JSON.parse(cached);
-          if (!cancelled && Array.isArray(parsed) && parsed.length > 0) {
-            const transformed = transformItems(parsed);
-            setCatalogueData(transformed);
-            setRawData(transformed);
-            setCatalogueStatus('cached');
-            return;
-          }
-        }
-      } catch(e) { /* corrupt cache — fall through to fetch */ }
-
-      // 2. Fetch from endpoint
       try {
         const res  = await fetch(GGVL_ENDPOINT);
         const data = await res.json();
@@ -669,13 +649,8 @@ function BuildPlanner() {
           setCatalogueData(transformed);
           setRawData(transformed);
           setCatalogueStatus('live');
-          try {
-            localStorage.setItem(GGVL_CACHE_KEY, JSON.stringify(data));
-            localStorage.setItem(GGVL_CACHE_TS,  String(Date.now()));
-          } catch(e) { /* localStorage full — ignore */ }
         }
       } catch(e) {
-        // 3. Fetch failed — stay on baked data
         if (!cancelled) setCatalogueStatus('error');
       }
     }
