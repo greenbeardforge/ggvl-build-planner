@@ -523,7 +523,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
           dataStatus==='error'   ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.8.31')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9')
       )
     ),
     // ── Table
@@ -1450,7 +1450,7 @@ function BuildPlanner() {
             <div style={{ color: catalogueStatus==='live' ? '#34a853' : catalogueStatus==='error' ? '#c05040' : C.inkLight }}>
               {catalogueStatus==='live' ? '● live from Sheets' : catalogueStatus==='error' ? '⚠ offline — no data' : '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.8.31</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9</div>
           </div>
         </div>
         )}
