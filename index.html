@@ -369,7 +369,7 @@ function CatPopup({ item, onClose }) {
   );
 }
 
-function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, tier, setTier, category, setCategory, skill, setSkill,
+function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, craft, setCraft, tier, setTier, category, setCategory, skill, setSkill,
   sidebarOpen, setSidebarOpen, sidebarWidth, sidebarRef, startResize, S }) {
   const [popup, setPopup] = useState(null);
   const [catSortCol, setCatSortCol] = useState('craft');
@@ -395,7 +395,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
   }, [data]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = (debouncedSearch||'').trim().toLowerCase();
     const craftSet = craft instanceof Set ? craft : new Set(craft);
     const tierSet  = tier  instanceof Set ? tier  : new Set(tier);
     return data.filter(i => {
@@ -416,7 +416,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
       if (q && !(i.name||'').toLowerCase().includes(q) && !(i.description||'').toLowerCase().includes(q) && !(i.materials||'').toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data, search, craft, tier, category, skill]);
+  }, [data, debouncedSearch, craft, tier, category, skill]);
 
   const SORTABLE_NUMERIC = new Set(['ecl','ef','cost','sale','per','per30','yield_val','cxp','cxp_per_res','coins_per_cxp']);
   const TIER_ORDER = {'T0 Basic':0,'T0 SURV':0,'T0':0,'T1':1,'T2':2,'T3':3};
@@ -582,9 +582,12 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
       R('div', { onMouseDown: startResize, style:{ position:'absolute', top:0, right:0, width:5, height:'100%', cursor:'col-resize', zIndex:10 } }),
       R('div', { style:{ position:'absolute', bottom:6, left:0, right:0, textAlign:'center', fontSize:10,
         fontFamily:"'Crimson Pro',serif", letterSpacing:'.08em', pointerEvents:'none', opacity: 0.85 } },
-        R('div', { style:{ color: dataStatus==='live' ? '#34a853' : dataStatus==='error' ? '#c05040' : C.inkLight } },
-          dataStatus==='live'    ? '● live from Sheets' :
-          dataStatus==='error'   ? '⚠ offline — no data' :
+        R('div', { style:{ color: dataStatus==='live'||dataStatus==='updated' ? '#34a853' : dataStatus==='error' ? '#c05040' : dataStatus==='cached'||dataStatus==='cached-offline' ? C.inkMid : C.inkLight } },
+          dataStatus==='live'           ? '● live from Sheets' :
+          dataStatus==='updated'        ? '↻ Updated' :
+          dataStatus==='cached'         ? '● cached — refreshing…' :
+          dataStatus==='cached-offline' ? '● cached — offline' :
+          dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
         R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9')
@@ -620,10 +623,10 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
                 } else if (col.key === 'tier') {
                   cell = val ? R('span', { className: tierClass(val) }, tierLabel(val)) : null;
                 } else if (col.key === 'name') {
-                  const q = search.trim().toLowerCase();
+                  const q = (debouncedSearch||'').trim().toLowerCase();
                   cell = R('span', { title: val || '', style:{ display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, highlight(val, q));
                 } else if (col.key === 'materials') {
-                  const q = search.trim().toLowerCase();
+                  const q = (debouncedSearch||'').trim().toLowerCase();
                   cell = highlight(val, q);
                 } else if (col.key === 'description') {
                   cell = R('span', { title: val || '', style:{ display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, val || '');
@@ -653,6 +656,8 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
 function BuildPlanner() {
   const [selected,     setSelected]    = useState(new Map());
   const [search,       setSearch]      = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search), 150); return () => clearTimeout(t); }, [search]);
   const [presets,      setPresets]     = useState(() => loadPresets());
   const [presetInput,  setPresetInput]  = useState('');
   const [savingPreset, setSavingPreset] = useState(false);
@@ -717,7 +722,7 @@ function BuildPlanner() {
   const [appMode,      setAppMode]     = useState('planner');
   const [guildOpen,    setGuildOpen]   = useState(false);
 
-  // ── Catalogue data: always-fetch on load, sample fallback ─────────────────
+  // ── Catalogue data: cache-first, background refresh ──────────────────────
   function transformItems(items) {
     return items.map(item => {
       const parts = (item.skill_ratings || '').split('\n').filter(Boolean);
@@ -729,10 +734,25 @@ function BuildPlanner() {
       return item;
     });
   }
+  const CACHE_KEY = 'ggvl-catalogue-cache';
+  const dataFingerprint = (arr) => arr.length + '|' + (arr[0]?.name||'') + '|' + (arr[arr.length-1]?.name||'');
   const SAMPLE = transformItems(GGVL_SAMPLE_DATA);
-  const [catalogueData,   setCatalogueData]   = useState(SAMPLE);
-  const [rawData,         setRawData]         = useState(SAMPLE);
-  const [catalogueStatus, setCatalogueStatus] = useState('loading');
+
+  const getInitialData = () => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) { const parsed = JSON.parse(cached); if (Array.isArray(parsed) && parsed.length > 0) return parsed; }
+    } catch(e) {}
+    return SAMPLE;
+  };
+  const getInitialStatus = () => {
+    try { const cached = localStorage.getItem(CACHE_KEY); if (cached) return 'cached'; } catch(e) {}
+    return 'loading';
+  };
+
+  const [catalogueData,   setCatalogueData]   = useState(() => getInitialData());
+  const [rawData,         setRawData]         = useState(() => getInitialData());
+  const [catalogueStatus, setCatalogueStatus] = useState(() => getInitialStatus());
 
   useEffect(() => {
     let cancelled = false;
@@ -742,15 +762,25 @@ function BuildPlanner() {
         const data = await res.json();
         if (!cancelled && Array.isArray(data) && data.length > 0) {
           const transformed = transformItems(data);
+          // Detect change vs current data
+          let prevFingerprint = '';
+          try { const cached = localStorage.getItem(CACHE_KEY); if (cached) { const p = JSON.parse(cached); prevFingerprint = dataFingerprint(p); } } catch(e) {}
+          const newFingerprint = dataFingerprint(transformed);
+          const changed = newFingerprint !== prevFingerprint;
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(transformed)); } catch(e) {}
           setCatalogueData(transformed);
           setRawData(transformed);
-          setCatalogueStatus('live');
+          if (changed && prevFingerprint !== '') {
+            setCatalogueStatus('updated');
+            setTimeout(() => { if (!cancelled) setCatalogueStatus('live'); }, 2500);
+          } else {
+            setCatalogueStatus('live');
+          }
         }
       } catch(e) {
         if (!cancelled) {
-          setCatalogueData(SAMPLE);
-          setRawData(SAMPLE);
-          setCatalogueStatus('error');
+          const hasCached = catalogueStatus === 'cached';
+          setCatalogueStatus(hasCached ? 'cached-offline' : 'error');
         }
       }
     }
@@ -758,6 +788,8 @@ function BuildPlanner() {
     return () => { cancelled = true; };
   }, []);
   const [catSearch,    setCatSearch]   = useState('');
+  const [debouncedCatSearch, setDebouncedCatSearch] = useState('');
+  useEffect(() => { const t = setTimeout(() => setDebouncedCatSearch(catSearch), 150); return () => clearTimeout(t); }, [catSearch]);
   const [catCraft,     setCatCraft]    = useState(new Set(['BS','LW','WW','TINK','ALCH','SURV']));
   const [catTier,      setCatTier]     = useState(new Set(['T0','T1','T2','T3']));
   const [catCategory,  setCatCategory] = useState('');
@@ -1052,7 +1084,7 @@ function BuildPlanner() {
   }, [RAW_DATA]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = debouncedSearch.toLowerCase();
     return RAW_DATA.filter(i => {
       if (isExcluded(i)) return false;
       if (!craftFilter.has(i.craft)) return false;
@@ -1068,7 +1100,7 @@ function BuildPlanner() {
       if (!tierFilter.has(tierKey)) return false;
       return true;
     });
-  }, [RAW_DATA, search, craftFilter, catFilter, skillFilter, tierFilter]);
+  }, [RAW_DATA, debouncedSearch, craftFilter, catFilter, skillFilter, tierFilter]);
 
   const getMaxSkillDice = (item, skill) => {
     // Returns highest die count (number) for a specific skill, or across all skills if skill=null
@@ -1443,6 +1475,7 @@ function BuildPlanner() {
         data={catalogueData}
         dataStatus={catalogueStatus}
         search={catSearch} setSearch={setCatSearch}
+        debouncedSearch={debouncedCatSearch}
         craft={catCraft} setCraft={setCatCraft}
         tier={catTier} setTier={setCatTier}
         category={catCategory} setCategory={setCatCategory}
@@ -1551,8 +1584,13 @@ function BuildPlanner() {
 
           {/* Version */}
           <div style={{ position:'absolute', bottom:6, left:0, right:0, textAlign:'center', fontSize:10, fontFamily:"'Crimson Pro',serif", letterSpacing:'.08em', opacity:0.85, pointerEvents:'none' }}>
-            <div style={{ color: catalogueStatus==='live' ? '#34a853' : catalogueStatus==='error' ? '#c05040' : C.inkLight }}>
-              {catalogueStatus==='live' ? '● live from Sheets' : catalogueStatus==='error' ? '⚠ offline — no data' : '◌ loading…'}
+            <div style={{ color: catalogueStatus==='live'||catalogueStatus==='updated' ? '#34a853' : catalogueStatus==='error' ? '#c05040' : catalogueStatus==='cached'||catalogueStatus==='cached-offline' ? C.inkMid : C.inkLight }}>
+              {catalogueStatus==='live'           ? '● live from Sheets' :
+               catalogueStatus==='updated'        ? '↻ Updated' :
+               catalogueStatus==='cached'         ? '● cached — refreshing…' :
+               catalogueStatus==='cached-offline' ? '● cached — offline' :
+               catalogueStatus==='error'          ? '⚠ offline — no data' :
+               '◌ loading…'}
             </div>
             <div style={{ color: C.inkLight, marginTop:2 }}>v4.9</div>
           </div>
