@@ -372,6 +372,10 @@ function CatPopup({ item, onClose }) {
 function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, tier, setTier, category, setCategory, skill, setSkill,
   sidebarOpen, setSidebarOpen, sidebarWidth, sidebarRef, startResize, S }) {
   const [popup, setPopup] = useState(null);
+  const [catSortCol, setCatSortCol] = useState('craft');
+  const [catSortDir, setCatSortDir] = useState('asc');
+  const catToggleSort = (col) => { if (catSortCol === col) { setCatSortDir(d => d === 'asc' ? 'desc' : 'asc'); } else { setCatSortCol(col); setCatSortDir('asc'); } };
+  const catSortArrow = (col) => catSortCol === col ? (catSortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
 
   const allCategories = useMemo(() => {
     const s = new Set();
@@ -409,15 +413,68 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
         else if (skill === 'Deflection Rating') { if (!i.deflection) return false; }
         else if (!itemSkills.includes(skill)) return false;
       }
-      if (q && !(i.name||'').toLowerCase().includes(q) && !(i.description||'').toLowerCase().includes(q)) return false;
+      if (q && !(i.name||'').toLowerCase().includes(q) && !(i.description||'').toLowerCase().includes(q) && !(i.materials||'').toLowerCase().includes(q)) return false;
       return true;
     });
   }, [data, search, craft, tier, category, skill]);
+
+  const SORTABLE_NUMERIC = new Set(['ecl','ef','cost','sale','per','per30','yield_val','cxp','cxp_per_res','coins_per_cxp']);
+  const TIER_ORDER = {'T0 Basic':0,'T0 SURV':0,'T0':0,'T1':1,'T2':2,'T3':3};
+  const CRAFT_ORDER = {'BS':0,'LW':1,'WW':2,'TINK':3,'ALCH':4,'SURV':5};
+  const parseNum = (v) => { if (v == null || v === '' || v === 'MISSING PRICE') return null; const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n) ? null : n; };
+  const colVal = (item, col) => {
+    if (col === 'tier')  return TIER_ORDER[item.tier] ?? 0;
+    if (col === 'craft') return CRAFT_ORDER[item.craft] ?? 99;
+    if (SORTABLE_NUMERIC.has(col)) return parseNum(item[col]);
+    return (item[col] || '').toLowerCase();
+  };
+  const tiebreakers = (a, b) => {
+    // Craft → Tier → Category → Name
+    const chain = ['craft','tier','category','name'];
+    for (const col of chain) {
+      const av = colVal(a, col), bv = colVal(b, col);
+      if (av == null && bv == null) continue;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (av < bv) return -1;
+      if (av > bv) return 1;
+    }
+    return 0;
+  };
+  const catSortedFiltered = useMemo(() => {
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      const col = catSortCol;
+      const av = colVal(a, col), bv = colVal(b, col);
+      // nulls always to bottom regardless of direction
+      if (av == null && bv == null) return tiebreakers(a, b);
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const primary = av < bv ? -1 : av > bv ? 1 : 0;
+      if (primary !== 0) return catSortDir === 'asc' ? primary : -primary;
+      return tiebreakers(a, b);
+    });
+    return arr;
+  }, [filtered, catSortCol, catSortDir]);
+
+  const highlight = (text, q) => {
+    if (!q || !text) return text || '';
+    const str = String(text);
+    const idx = str.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return str;
+    return R('span', null,
+      str.slice(0, idx),
+      R('span', { style:{ background:'rgba(200,134,10,0.35)', borderRadius:2, padding:'0 1px' } }, str.slice(idx, idx + q.length)),
+      str.slice(idx + q.length)
+    );
+  };
 
   const R = React.createElement;
   const thStyle = { background:'var(--table-head)', color:'var(--table-head-txt)', padding:'5px 6px',
     fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700, letterSpacing:'.03em', textTransform:'uppercase',
     borderBottom:'1px solid var(--table-head-bdr)', whiteSpace:'nowrap', position:'sticky', top:0, zIndex:2 };
+  const thSortStyle = { cursor:'pointer', userSelect:'none' };
+  const SORTABLE_CAT = new Set(['craft','category','name','ecl','ef','tier','cost','sale','per','per30','yield_val','cxp','cxp_per_res','coins_per_cxp']);
   const tdStyle = { padding:'3px 6px', fontSize:14, borderBottom:'1px solid var(--parchment-dark)',
     whiteSpace:'nowrap', verticalAlign:'top' };
   // Per-column overrides: [width, extraStyle]
@@ -434,7 +491,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
     per30:        { width:34,  padding:'3px 3px', textAlign:'center' },
     yield_val:    { width:30,  padding:'3px 3px', textAlign:'right' },
     cxp:          { width:30,  padding:'3px 3px', textAlign:'right' },
-    materials:    { width:220, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:220 },
+    materials:    { whiteSpace:'nowrap' },
     cxp_per_res:  { width:52,  padding:'3px 4px', textAlign:'right' },
     coins_per_cxp:{ width:60,  padding:'3px 4px', textAlign:'right' },
   };
@@ -467,7 +524,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
         style:{ position:'absolute', top:8, right:8, background:'none', border:'none', cursor:'pointer', fontSize:15, color:C.inkMid, lineHeight:1 } }, '◀'),
       R('div', null,
         R('label', { style: S.label }, R('span', { style: S.labelIcon }, '⌕'), R('span', { style: S.labelText }, 'Search')),
-        R('input', { style: S.input, placeholder:'Item name…', value:search, onChange: e => setSearch(e.target.value) })
+        R('input', { style: S.input, placeholder:'Name, description, ingredient…', value:search, onChange: e => setSearch(e.target.value) })
       ),
       R('div', null,
         R('label', { style: S.label }, R('span', { style: S.labelIcon }, '⚒'), R('span', { style: S.labelText }, 'Craft')),
@@ -515,6 +572,13 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
         textAlign:'center', transition:'color .15s, border-color .15s', marginTop:-10,
         opacity: catFiltersActive ? 1 : 0.4,
       } }, '✕ Clear filters'),
+      R('button', { onClick: () => { setCatSortCol('craft'); setCatSortDir('asc'); }, style:{
+        background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+        padding:'3px 10px', fontSize:12, cursor:'pointer', color:C.inkMid,
+        width:'100%', fontFamily:"'Crimson Pro',serif", letterSpacing:'.03em',
+        textAlign:'center', transition:'color .15s, border-color .15s', marginTop:4,
+        opacity: (catSortCol !== 'craft' || catSortDir !== 'asc') ? 1 : 0.4,
+      } }, '⟳ Default sort'),
       R('div', { onMouseDown: startResize, style:{ position:'absolute', top:0, right:0, width:5, height:'100%', cursor:'col-resize', zIndex:10 } }),
       R('div', { style:{ position:'absolute', bottom:6, left:0, right:0, textAlign:'center', fontSize:10,
         fontFamily:"'Crimson Pro',serif", letterSpacing:'.08em', pointerEvents:'none', opacity: 0.85 } },
@@ -531,15 +595,20 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
       R('table', { style:{ borderCollapse:'collapse', width:'max-content', minWidth:'100%' } },
         R('thead', null,
           R('tr', null,
-            CAT_COLS.map((col, i) =>
-              R('th', { key:col.key, style:{ ...thStyle, ...thStyleFor(col.key), ...(i===2 ? { position:'sticky', left:0, zIndex:3 } : {}) } },
-                col.label
-              )
-            )
+            CAT_COLS.map((col, i) => {
+              const sortable = SORTABLE_CAT.has(col.key);
+              return R('th', {
+                key: col.key,
+                onClick: sortable ? () => catToggleSort(col.key) : undefined,
+                style:{ ...thStyle, ...thStyleFor(col.key), ...(i===2 ? { position:'sticky', left:0, zIndex:3 } : {}), ...(sortable ? thSortStyle : {}) }
+              },
+                col.label, sortable ? R('span', { style:{ opacity: catSortCol===col.key ? 1 : 0.35, fontSize:9, marginLeft:2 } }, catSortArrow(col.key)) : null
+              );
+            })
           )
         ),
         R('tbody', null,
-          filtered.map((item, ri) =>
+          catSortedFiltered.map((item, ri) =>
             R('tr', { key: item.name + ri,
               style:{ background: ri%2===0 ? 'var(--table-bg)' : 'var(--parchment-row)', cursor:'pointer' },
               onClick: () => setPopup(item) },
@@ -550,7 +619,13 @@ function CatalogueView({ data, dataStatus, search, setSearch, craft, setCraft, t
                   cell = R(CraftPill, { craft: val || '' });
                 } else if (col.key === 'tier') {
                   cell = val ? R('span', { className: tierClass(val) }, tierLabel(val)) : null;
-                } else if (col.key === 'description' || col.key === 'materials') {
+                } else if (col.key === 'name') {
+                  const q = search.trim().toLowerCase();
+                  cell = R('span', { title: val || '', style:{ display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, highlight(val, q));
+                } else if (col.key === 'materials') {
+                  const q = search.trim().toLowerCase();
+                  cell = highlight(val, q);
+                } else if (col.key === 'description') {
                   cell = R('span', { title: val || '', style:{ display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, val || '');
                 } else if (['cost','sale','per','per30'].includes(col.key) && val === 'MISSING PRICE') {
                   cell = R('span', { title:'MISSING PRICE', style:{ color:'var(--ink-light)', fontStyle:'italic' } }, '?');
@@ -690,6 +765,7 @@ function BuildPlanner() {
   const [view,         setView]        = useState('browse');
   const [sortCol,      setSortCol]     = useState('name');
   const [sortDir,      setSortDir]     = useState('asc');
+  const [skillSortDir, setSkillSortDir] = useState('desc');
   const toggleSort = (col) => { if (sortCol === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); } else { setSortCol(col); setSortDir('asc'); } };
   const sortArrow = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
 
@@ -994,8 +1070,36 @@ function BuildPlanner() {
     });
   }, [RAW_DATA, search, craftFilter, catFilter, skillFilter, tierFilter]);
 
+  const getMaxSkillDice = (item, skill) => {
+    // Returns highest die count (number) for a specific skill, or across all skills if skill=null
+    let max = -1;
+    getSkillLines(item).forEach(l => {
+      const p = parseSkillLine(l);
+      if (!p) return;
+      if (skill && skill !== 'All Skills' && p.skill !== skill) return;
+      // Extract die count from strings like "+2d4", "2d4", "+1d4"
+      const m = String(p.value||'').match(/(\d+)d\d+/);
+      const n = m ? parseInt(m[1]) : 0;
+      if (n > max) max = n;
+    });
+    return max; // -1 = no skill ratings
+  };
+
   const sortedFiltered = useMemo(() => {
     const arr = [...filtered];
+    if (sortCol === 'skillRating') {
+      const skill = skillFilter !== 'All Skills' ? skillFilter : null;
+      arr.sort((a, b) => {
+        const av = getMaxSkillDice(a, skill);
+        const bv = getMaxSkillDice(b, skill);
+        // items with no ratings go to bottom
+        if (av === -1 && bv === -1) return 0;
+        if (av === -1) return 1;
+        if (bv === -1) return -1;
+        return skillSortDir === 'desc' ? bv - av : av - bv;
+      });
+      return arr;
+    }
     arr.sort((a, b) => {
       let av, bv;
       if (sortCol === 'ecl') { av = parseInt(a.ecl) || 0; bv = parseInt(b.ecl) || 0; }
@@ -1007,7 +1111,7 @@ function BuildPlanner() {
       return 0;
     });
     return arr;
-  }, [filtered, sortCol, sortDir]);
+  }, [filtered, sortCol, sortDir, skillSortDir, skillFilter]);
 
   const RING_EXCEPTIONS = new Set(['Copper Ring Mail','Bronze Ring Mail','Iron Ring Mail']);
   const isRing = name => /\bRing\b/i.test(name) && !RING_EXCEPTIONS.has(name);
@@ -1519,7 +1623,7 @@ function BuildPlanner() {
                     <th style={{ ...S.th(), width:36, textAlign:'center' }}>✓</th>
                     <th style={{...S.th(), ...S.thSort, width:'20%'}} onClick={() => toggleSort('name')}>Item Name{sortArrow('name')}</th>
                     <th style={{...S.th(), ...S.thSort, width:1, whiteSpace:'nowrap', padding:'7px 3px'}} onClick={() => toggleSort('tier')}>Tier{sortArrow('tier')}</th>
-                    <th style={{...S.th(), width:'24%'}}>Skill Ratings</th>
+                    <th style={{...S.th(), ...S.thSort, width:'24%'}} onClick={() => { if (sortCol === 'skillRating') { setSkillSortDir(d => d === 'desc' ? 'asc' : 'desc'); } else { setSortCol('skillRating'); setSkillSortDir('desc'); } }}>Skill Ratings{sortCol === 'skillRating' ? (skillSortDir === 'desc' ? ' ▼' : ' ▲') : ' ⇅'}</th>
                     <th style={{...S.th(), width:1, whiteSpace:'nowrap', padding:'7px 3px'}}>Craft</th>
                     <th style={{...S.th(), ...S.thSort, width:1, whiteSpace:'nowrap', padding:'7px 3px'}} onClick={() => toggleSort('ecl')}>ECL{sortArrow('ecl')}</th>
                     <th style={{...S.th(), ...S.thSort, width:'14%'}} onClick={() => toggleSort('category')}>Category{sortArrow('category')}</th>
