@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GGVL Build Planner v4.8</title>
+  <title>GGVL Catalogue &amp; Planner</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56'%3E%3Cdefs%3E%3CclipPath id='c'%3E%3Ccircle cx='28' cy='28' r='26.25'/%3E%3C/clipPath%3E%3C/defs%3E%3Ccircle cx='28' cy='28' r='26.25' fill='%231a1a10'/%3E%3Ccircle cx='28' cy='28' r='26.25' fill='none' stroke='%2334a853' stroke-width='1.5'/%3E%3Ctext x='28' y='28' text-anchor='middle' dominant-baseline='central' font-family='Cinzel%2Cserif' font-size='46' font-weight='700' fill='%2334a853' clip-path='url(%23c)'%3EG%3C/text%3E%3C/svg%3E">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -590,7 +591,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.13')
       )
     ),
     // ── Table
@@ -627,7 +628,14 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                   cell = R('span', { title: val || '', style:{ display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, highlight(val, q));
                 } else if (col.key === 'materials') {
                   const q = (debouncedSearch||'').trim().toLowerCase();
-                  cell = highlight(val, q);
+                  const parts = (val||'').split(/, (?=\d+[×x])/);
+                  const fmt = p => { const m = p.match(/^(\d+)[×x]\s*(.+)$/); return m ? `×${m[1]} ${m[2]}` : p; };
+                  cell = R('span', { style:{ whiteSpace:'nowrap' } },
+                    parts.flatMap((p, i) => i === 0
+                      ? [highlight(fmt(p), q)]
+                      : [R('span', { key:`sep${i}`, style:{ color:'var(--ink-light)', margin:'0 6px' } }, '∙'), highlight(fmt(p), q)]
+                    )
+                  );
                 } else if (col.key === 'description') {
                   cell = R('span', { title: val || '', style:{ display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, val || '');
                 } else if (['cost','sale','per','per30'].includes(col.key) && val === 'MISSING PRICE') {
@@ -1103,18 +1111,16 @@ function BuildPlanner() {
   }, [RAW_DATA, debouncedSearch, craftFilter, catFilter, skillFilter, tierFilter]);
 
   const getMaxSkillDice = (item, skill) => {
-    // Returns highest die count (number) for a specific skill, or across all skills if skill=null
-    let max = -1;
+    // Returns highest signed die count for a specific skill, or across all skills if skill=null
+    let max = null;
     getSkillLines(item).forEach(l => {
       const p = parseSkillLine(l);
       if (!p) return;
       if (skill && skill !== 'All Skills' && p.skill !== skill) return;
-      // Extract die count from strings like "+2d4", "2d4", "+1d4"
-      const m = String(p.value||'').match(/(\d+)d\d+/);
-      const n = m ? parseInt(m[1]) : 0;
-      if (n > max) max = n;
+      const val = p.dice * p.sign; // e.g. +2d4 → 2, -1d4 → -1
+      if (max === null || val > max) max = val;
     });
-    return max; // -1 = no skill ratings
+    return max; // null = no skill ratings
   };
 
   const sortedFiltered = useMemo(() => {
@@ -1125,9 +1131,9 @@ function BuildPlanner() {
         const av = getMaxSkillDice(a, skill);
         const bv = getMaxSkillDice(b, skill);
         // items with no ratings go to bottom
-        if (av === -1 && bv === -1) return 0;
-        if (av === -1) return 1;
-        if (bv === -1) return -1;
+        if (av === null && bv === null) return 0;
+        if (av === null) return 1;
+        if (bv === null) return -1;
         return skillSortDir === 'desc' ? bv - av : av - bv;
       });
       return arr;
@@ -1592,7 +1598,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.13</div>
           </div>
         </div>
         )}
