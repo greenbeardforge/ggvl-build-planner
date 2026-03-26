@@ -170,7 +170,7 @@ const C = {
   lwRow:      'var(--parchment-row)', tinkRow: 'var(--parchment-row)', wwRow: 'var(--parchment-row)',
 };
 
-const COL_COLORS = { ef:'#02be02', cost:'#ea4335', sale:'#3c78d8', per:'#6ee87a', per30:'#edbe00' };
+const COL_COLORS = { ecl:'#b08d58', ef:'#a07830', cost:'#ea4335', sale:'#3c78d8', per:'#6ee87a', per30:'#edbe00' };
 const CRAFT_BG = { BS: C.lwRow, LW: C.lwRow, TINK: C.tinkRow, WW: C.wwRow, SURV: C.tinkRow };
 
 // ── Drop Zone ─────────────────────────────────────────────────────────────────
@@ -201,7 +201,7 @@ const CAT_COLS = [
   { key:'sale',        label:'Sale'               },
   { key:'per',         label:'PER'                },
   { key:'per30',       label:'30%'                },
-  { key:'yield_val',   label:'Yield'              },
+  { key:'yield_val',   label:'#'                  },
   { key:'cxp',         label:'CXP'                },
   { key:'materials',   label:'Materials'          },
   { key:'cxp_per_res', label:'CXP/Res'            },
@@ -317,7 +317,7 @@ function CatPopup({ item, onClose }) {
         R('div', { className:'full', style:{ display:'flex', gap:16, fontSize:15, color:'var(--ink-mid)' } },
           R('span', null, item.category),
           item.ecl ? R('span', null, 'ECL ', item.ecl) : null,
-          item.ef  ? R('span', null, 'EF@ ', R('span', { style:{ color:'#02be02', fontWeight:600 } }, String(item.ef))) : null
+          item.ef  ? R('span', null, 'EF@ ', R('span', { style:{ color:'#a07830', fontWeight:600 } }, String(item.ef))) : null
         ),
         // Pricing
         R('div', { className:'full' },
@@ -471,8 +471,8 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
   };
 
   const R = React.createElement;
-  const thStyle = { background:'var(--table-head)', color:'var(--table-head-txt)', padding:'5px 6px',
-    fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700, letterSpacing:'.03em', textTransform:'uppercase',
+  const thStyle = { background:'var(--table-head)', color:'var(--table-head-txt)', padding:'5px 2px',
+    fontFamily:"'Cinzel',serif", fontSize:9, fontWeight:700, letterSpacing:'.03em', textTransform:'uppercase',
     borderBottom:'1px solid var(--table-head-bdr)', whiteSpace:'nowrap', position:'sticky', top:0, zIndex:2 };
   const thSortStyle = { cursor:'pointer', userSelect:'none' };
   const SORTABLE_CAT = new Set(['craft','category','name','ecl','ef','tier','cost','sale','per','per30','yield_val','cxp','cxp_per_res','coins_per_cxp']);
@@ -483,18 +483,18 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
     craft:        { width:44,  padding:'3px 4px', textAlign:'center' },
     category:     { width:110, padding:'3px 5px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:110 },
     name:         { width:180, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:180 },
-    ecl:          { width:28,  padding:'3px 3px', textAlign:'center' },
-    ef:           { width:28,  padding:'3px 3px', textAlign:'center' },
-    tier:         { width:36,  padding:'3px 3px', textAlign:'center' },
-    cost:         { width:34,  padding:'3px 3px', textAlign:'center' },
-    sale:         { width:34,  padding:'3px 3px', textAlign:'center' },
-    per:          { width:34,  padding:'3px 3px', textAlign:'center' },
-    per30:        { width:34,  padding:'3px 3px', textAlign:'center' },
-    yield_val:    { width:30,  padding:'3px 3px', textAlign:'right' },
-    cxp:          { width:30,  padding:'3px 3px', textAlign:'right' },
+    ecl:          { width:16,  padding:'3px 1px', textAlign:'center' },
+    ef:           { width:16,  padding:'3px 1px', textAlign:'center' },
+    tier:         { width:20,  padding:'3px 1px', textAlign:'center' },
+    cost:         { width:18,  padding:'3px 1px', textAlign:'center' },
+    sale:         { width:18,  padding:'3px 1px', textAlign:'center' },
+    per:          { width:18,  padding:'3px 1px', textAlign:'center' },
+    per30:        { width:18,  padding:'3px 1px', textAlign:'center' },
+    yield_val:    { width:16,  padding:'3px 1px', textAlign:'right' },
+    cxp:          { width:16,  padding:'3px 1px', textAlign:'right' },
     materials:    { whiteSpace:'nowrap' },
-    cxp_per_res:  { width:52,  padding:'3px 4px', textAlign:'right' },
-    coins_per_cxp:{ width:60,  padding:'3px 4px', textAlign:'right' },
+    cxp_per_res:  { width:34,  padding:'3px 4px', textAlign:'right' },
+    coins_per_cxp:{ width:34,  padding:'3px 4px', textAlign:'right' },
   };
   const thStyleFor = (key) => {
     const ow = COL_STYLE[key];
@@ -591,7 +591,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.13')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.31')
       )
     ),
     // ── Table
@@ -606,7 +606,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                 onClick: sortable ? () => catToggleSort(col.key) : undefined,
                 style:{ ...thStyle, ...thStyleFor(col.key), ...(i===2 ? { position:'sticky', left:0, zIndex:3 } : {}), ...(sortable ? thSortStyle : {}) }
               },
-                col.label, sortable ? R('span', { style:{ opacity: catSortCol===col.key ? 1 : 0.35, fontSize:9, marginLeft:2 } }, catSortArrow(col.key)) : null
+                col.label, sortable ? R('span', { style:{ opacity: catSortCol===col.key ? 1 : 0.35, fontSize:9, marginLeft:1 } }, catSortArrow(col.key)) : null
               );
             })
           )
@@ -727,7 +727,7 @@ function BuildPlanner() {
   const [tierFilter,   setTierFilter]  = useState(new Set(['T0','T1','T2','T3']));
   const toggleTier = t => setTierFilter(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
   const filtersActive = search !== '' || catFilter !== 'All Categories' || skillFilter !== 'All Skills' || craftFilter.size < 5 || tierFilter.size < 4;
-  const [appMode,      setAppMode]     = useState('planner');
+  const [appMode,      setAppMode]     = useState('catalogue');
   const [guildOpen,    setGuildOpen]   = useState(false);
 
   // ── Catalogue data: cache-first, background refresh ──────────────────────
@@ -1435,23 +1435,23 @@ function BuildPlanner() {
       <div style={S.header}>
         <div style={S.headerInner}>
           <div style={{ display:'flex', flexDirection:'column', justifyContent:'center' }}>
-            <h1 style={{...S.title, display:'flex', alignItems:'baseline', gap:0}}>
-              <span style={{ marginRight:12 }}>GGVL</span>
-              <button type="button" onClick={()=>setAppMode('planner')} style={{
-                background:'none', border:'none', cursor:'pointer', padding:'0 0',
-                fontFamily:"'Cinzel',serif", fontWeight:700, fontSize:'inherit', letterSpacing:'.06em',
-                color: appMode==='planner' ? C.glow : 'rgba(232,184,109,.25)',
-                textShadow: appMode==='planner' ? '0 0 22px rgba(232,184,109,.7), 0 0 8px rgba(200,151,58,.5)' : 'none',
-                transition:'color .2s, text-shadow .2s', lineHeight:'inherit'
-              }}>⚒ Build Planner</button>
-              <span style={{ margin:'0 10px', color:'rgba(232,184,109,.4)', fontWeight:400 }}>&amp;</span>
+            <h1 style={{...S.title, display:'flex', alignItems:'baseline', gap:0, whiteSpace:'normal'}}>
+              <span style={{ marginRight:12, whiteSpace:'nowrap' }}>GGVL</span>
               <button type="button" onClick={() => { setAppMode('catalogue'); if (!localStorage.getItem('ggvl-cat-tour-seen')) { setCatTourStep(0); setCatTourOpen(true); } }} style={{
                 background:'none', border:'none', cursor:'pointer', padding:0,
                 fontFamily:"'Cinzel',serif", fontWeight:700, fontSize:'inherit', letterSpacing:'.06em',
                 color: appMode==='catalogue' ? C.glow : 'rgba(232,184,109,.25)',
                 textShadow: appMode==='catalogue' ? '0 0 22px rgba(232,184,109,.7), 0 0 8px rgba(200,151,58,.5)' : 'none',
-                transition:'color .2s, text-shadow .2s', lineHeight:'inherit'
-              }}>Catalogue {window.innerWidth < 768 ? '✒' : '🕮'}</button>
+                transition:'color .2s, text-shadow .2s', lineHeight:'inherit', whiteSpace:'nowrap'
+              }}>Catalogue</button>
+              <span style={{ whiteSpace:'nowrap', color:'rgba(232,184,109,.4)', fontWeight:400, margin:'0 10px' }}>&amp;</span>
+              <button type="button" onClick={()=>setAppMode('planner')} style={{
+                background:'none', border:'none', cursor:'pointer', padding:0,
+                fontFamily:"'Cinzel',serif", fontWeight:700, fontSize:'inherit', letterSpacing:'.06em',
+                color: appMode==='planner' ? C.glow : 'rgba(232,184,109,.25)',
+                textShadow: appMode==='planner' ? '0 0 22px rgba(232,184,109,.7), 0 0 8px rgba(200,151,58,.5)' : 'none',
+                transition:'color .2s, text-shadow .2s', lineHeight:'inherit', whiteSpace:'nowrap'
+              }}>Build Planner ⚒</button>
             </h1>
             <div style={S.subtitle}>
               Gwylim, Gunak, Vicho, & Lain —{' '}
@@ -1598,7 +1598,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.13</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.31</div>
           </div>
         </div>
         )}
