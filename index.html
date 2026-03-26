@@ -260,16 +260,24 @@ function CraftPill({ craft }) {
 }
 
 function CatPopup({ item, onClose }) {
-  const sections = [
-    { key:'cost',         label: 'Cost',          val: item.cost },
-    { key:'sale',         label: 'Sale',          val: item.sale },
-    { key:'per',          label: 'PER',           val: item.per },
-    { key:'per30',        label: '30%',           val: item.per30 },
-    { key:'yield_val',    label: 'Yield',         val: item.yield_val },
-    { key:'cxp',          label: 'CXP',           val: item.cxp },
-    { key:'cxp_per_res',  label: 'CXP / Res',     val: item.cxp_per_res },
-    { key:'coins_per_cxp',label: 'Coins / CXP',   val: item.coins_per_cxp },
-  ];
+  const pricing = [
+    { key:'cost',  label:'Cost',  val: item.cost },
+    { key:'sale',  label:'Sale',  val: item.sale },
+    { key:'per',   label:'PER',   val: item.per },
+    { key:'per30', label:'30%',   val: item.per30 },
+  ].filter(s => s.val != null && s.val !== '');
+  const economy = [
+    { key:'yield_val',     label:'Yield',       val: item.yield_val },
+    { key:'cxp',           label:'CXP',         val: item.cxp },
+    { key:'cxp_per_res',   label:'CXP/Res',     val: item.cxp_per_res },
+    { key:'coins_per_cxp', label:'Coins/CXP',   val: item.coins_per_cxp },
+  ].filter(s => s.val != null && s.val !== '');
+  const matParts = item.materials
+    ? item.materials.split(/, (?=\d+[×x])/).map(p => {
+        const m = p.match(/^(\d+)[×x]\s*(.+)$/);
+        return m ? `×${m[1]} ${m[2]}` : p;
+      })
+    : [];
   const stats = [
     { label: 'Skill Ratings',         val: item.skill_ratings },
     { label: 'Decreased SR',          val: item.sk_pen },
@@ -294,16 +302,26 @@ function CatPopup({ item, onClose }) {
     { label: 'Use Limitation',        val: item.use },
   ].filter(s => s.val != null && s.val !== '');
 
+  const rowStyle = { display:'flex', gap:12, fontSize:15, padding:'3px 0',
+    borderBottom:'1px solid rgba(255,255,255,0.06)' };
+  const labelStyle = { color:'var(--ink-mid)', flexShrink:0 };
+  const valStyle   = { color:'var(--ink-light)' };
+
   const R = React.createElement;
   return R('div', { className:'modal-overlay', onClick: onClose },
-    R('div', { className:'modal', style:{ maxWidth:550, width:'96vw',
+    R('div', { className:'modal', style:{
+        maxWidth:550, width:'96vw',
         background:'var(--card-bg)', border:'1px solid #1d6632', borderRadius:8,
         boxShadow:'0 8px 40px rgba(0,0,0,.7), 0 0 0 1px rgba(52,168,83,.25), 0 0 40px rgba(29,102,50,.2)',
         overflow:'hidden', position:'relative' },
       onClick: e => e.stopPropagation() },
+
+      // Top accent bar
       R('div', { style:{ position:'absolute', top:0, left:0, right:0, height:12,
         background:'linear-gradient(90deg, #0d2e18 0%, #1d6632 25%, #34A853 50%, #1d6632 75%, #0d2e18 100%)',
         boxShadow:'0 2px 12px rgba(52,168,83,.55)', zIndex:1 } }),
+
+      // Header
       R('div', { className:'modal-head', style:{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:12 } },
         R('span', { style:{ fontFamily:"'Cinzel',serif", fontSize:16 } }, item.name),
         R('div', { style:{ display:'flex', gap:8, alignItems:'center' } },
@@ -312,47 +330,66 @@ function CatPopup({ item, onClose }) {
           R('button', { className:'btn btn-cancel', style:{ padding:'2px 10px', fontSize:12 }, onClick: onClose }, '✕')
         )
       ),
-      R('div', { className:'modal-body', style:{ gridTemplateColumns:'1fr 1fr', gap:10 } },
-        // Category / ECL / EF
+
+      R('div', { className:'modal-body', style:{ gridTemplateColumns:'1fr', gap:10 } },
+
+        // Line 1: Category · ECL · EF@
         R('div', { className:'full', style:{ display:'flex', gap:16, fontSize:15, color:'var(--ink-mid)' } },
           R('span', null, item.category),
           item.ecl ? R('span', null, 'ECL ', item.ecl) : null,
           item.ef  ? R('span', null, 'EF@ ', R('span', { style:{ color:'#a07830', fontWeight:600 } }, String(item.ef))) : null
         ),
-        // Pricing
-        R('div', { className:'full' },
-          R('span', { className:'field-label' }, 'Pricing'),
-          R('div', { style:{ display:'flex', flexWrap:'wrap', gap:'6px 20px', fontSize:15 } },
-            sections.filter(s => s.val != null).map(s => {
-              const pColor = COL_COLORS[s.key];
-              return R('span', { key: s.label },
-                R('b', null, s.label + ': '),
-                pColor
-                  ? R('span', { style:{ color: pColor, fontWeight:600 } }, String(s.val))
-                  : String(s.val)
-              );
-            })
-          )
-        ),
-        // Materials
-        item.materials ? R('div', { className:'full' },
-          R('span', { className:'field-label' }, 'Materials'),
-          R('div', { style:{ fontSize:15 } }, item.materials)
-        ) : null,
-        // Stats
-        stats.length > 0 ? R('div', { className:'full' },
-          R('span', { className:'field-label' }, 'Stats'),
-          R('div', { style:{ display:'flex', flexWrap:'wrap', gap:'4px 20px', fontSize:15 } },
-            stats.map(s =>
-              R('span', { key: s.label }, R('b', null, s.label + ': '), s.val)
+
+        // Line 2: Economy (Yield / CXP / CXP per Res / Coins per CXP)
+        economy.length > 0 ? R('div', { className:'full', style:{ display:'flex', gap:16, fontSize:14, color:'var(--ink-mid)', flexWrap:'wrap' } },
+          economy.map(s =>
+            R('span', { key: s.key },
+              s.label + ': ',
+              R('span', { style:{ color:'var(--ink-light)' } }, String(s.val))
             )
           )
         ) : null,
+
+        // Two-column: Pricing (left) + Materials (right)
+        (pricing.length > 0 || matParts.length > 0) ? R('div', { className:'full', style:{ display:'flex', gap:20, alignItems:'flex-start' } },
+          // Left: Pricing
+          pricing.length > 0 ? R('div', { style:{ flex:'0 0 150px' } },
+            R('span', { className:'field-label' }, 'Pricing'),
+            pricing.map(s =>
+              R('div', { key: s.key, style: rowStyle },
+                R('span', { style: labelStyle }, s.label + ':'),
+                R('span', { style:{ color: COL_COLORS[s.key] || 'var(--ink-light)', fontWeight:600 } }, String(s.val))
+              )
+            )
+          ) : null,
+          // Right: Materials
+          matParts.length > 0 ? R('div', { style:{ flex:'1 1 0' } },
+            R('span', { className:'field-label' }, 'Materials'),
+            matParts.map((p, i) =>
+              R('div', { key: i, style:{ fontSize:15, padding:'3px 0', borderBottom:'1px solid rgba(255,255,255,0.06)', color:'var(--ink-light)' } }, p)
+            )
+          ) : null
+        ) : null,
+
+        // Stats — each on its own full-width row
+        stats.length > 0 ? R('div', { className:'full' },
+          R('span', { className:'field-label' }, 'Stats'),
+          R('div', null,
+            stats.map(s =>
+              R('div', { key: s.label, style: rowStyle },
+                R('span', { style: labelStyle }, s.label + ':'),
+                R('span', { style:{ ...valStyle, marginLeft:8 } }, String(s.val))
+              )
+            )
+          )
+        ) : null,
+
         // Description
         item.description ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'Description'),
           R('div', { style:{ fontSize:15, fontStyle:'italic' } }, item.description)
         ) : null,
+
         // OOC / Misc
         item.ooc ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'OOC Notes'),
@@ -363,6 +400,7 @@ function CatPopup({ item, onClose }) {
           R('div', { style:{ fontSize:15 } }, item.misc)
         ) : null
       ),
+
       R('div', { className:'modal-foot' },
         R('button', { className:'btn btn-cancel', onClick: onClose }, 'Close')
       )
@@ -371,7 +409,7 @@ function CatPopup({ item, onClose }) {
 }
 
 function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, craft, setCraft, tier, setTier, category, setCategory, skill, setSkill,
-  sidebarOpen, setSidebarOpen, sidebarWidth, sidebarRef, startResize, S }) {
+  sidebarOpen, setSidebarOpen, sidebarWidth, sidebarRef, startResize, S, hidden }) {
   const [popup, setPopup] = useState(null);
   const [catSortCol, setCatSortCol] = useState('craft');
   const [catSortDir, setCatSortDir] = useState('asc');
@@ -512,7 +550,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
     || (tier instanceof Set ? tier.size < 4 : tier.length < 4) || (category !== '' && category !== 'All Categories') || (skill !== '' && skill !== 'All Skills');
   const clearCatFilters = () => { setSearch(''); setCraft(new Set(['BS','LW','WW','TINK','ALCH','SURV'])); setTier(new Set(['T0','T1','T2','T3'])); setCategory('All Categories'); setSkill('All Skills'); };
 
-  return R('div', { style:{ display:'flex', height:'100%', overflow:'hidden' } },
+  return R('div', { style:{ display: hidden ? 'none' : 'flex', height:'100%', overflow:'hidden' } },
     // ── Sidebar
     !sidebarOpen && R('div', {
       onClick: () => setSidebarOpen(true),
@@ -591,7 +629,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.31')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.34')
       )
     ),
     // ── Table
@@ -1477,7 +1515,8 @@ function BuildPlanner() {
 
       {/* Source bar removed from header area — now in sidebar footer */}
 
-      {appMode === 'catalogue' && <CatalogueView
+      <CatalogueView
+        hidden={appMode !== 'catalogue'}
         data={catalogueData}
         dataStatus={catalogueStatus}
         search={catSearch} setSearch={setCatSearch}
@@ -1489,7 +1528,7 @@ function BuildPlanner() {
         sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
         sidebarWidth={sidebarWidth} sidebarRef={sidebarRef} startResize={startResize}
         S={S}
-      />}
+      />
 
       {appMode === 'planner' && <React.Fragment>
 
@@ -1598,7 +1637,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.31</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.34</div>
           </div>
         </div>
         )}
