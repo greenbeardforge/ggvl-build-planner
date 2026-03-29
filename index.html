@@ -366,19 +366,20 @@ function CatPopup({ item, onClose }) {
           matParts.length > 0 ? R('div', { style:{ flex:'1 1 0' } },
             R('span', { className:'field-label' }, 'Materials'),
             matParts.map((p, i) =>
-              R('div', { key: i, style:{ fontSize:15, padding:'3px 0', borderBottom:'1px solid rgba(255,255,255,0.06)', color:'var(--ink-light)' } }, p)
+              R('div', { key: i, style:{ fontSize:15, padding:'3px 0', borderBottom:'1px solid rgba(255,255,255,0.06)', color:'var(--ink)' } }, p)
             )
           ) : null
         ) : null,
 
-        // Stats — each on its own full-width row
+        // Stats — raw value only, no label prefix
         stats.length > 0 ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'Stats'),
           R('div', null,
             stats.map(s =>
               R('div', { key: s.label, style: rowStyle },
-                R('span', { style: labelStyle }, s.label + ':'),
-                R('span', { style:{ ...valStyle, marginLeft:8 } }, String(s.val))
+                String(s.val).split('\n').filter(Boolean).map((line, i) =>
+                  R('div', { key: i }, line)
+                )
               )
             )
           )
@@ -387,17 +388,17 @@ function CatPopup({ item, onClose }) {
         // Description
         item.description ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'Description'),
-          R('div', { style:{ fontSize:15, fontStyle:'italic' } }, item.description)
+          R('div', { style:{ fontSize:15, fontStyle:'italic', color:'var(--ink-light)' } }, item.description)
         ) : null,
 
         // OOC / Misc
         item.ooc ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'OOC Notes'),
-          R('div', { style:{ fontSize:15 } }, item.ooc)
+          R('div', { style:{ fontSize:15, color:'var(--ink-light)' } }, item.ooc)
         ) : null,
         item.misc ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'Miscellaneous'),
-          R('div', { style:{ fontSize:15 } }, item.misc)
+          R('div', { style:{ fontSize:15, color:'var(--ink-light)' } }, item.misc)
         ) : null
       ),
 
@@ -629,7 +630,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.34')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.37')
       )
     ),
     // ── Table
@@ -1530,7 +1531,7 @@ function BuildPlanner() {
         S={S}
       />
 
-      {appMode === 'planner' && <React.Fragment>
+      <div style={{ display: appMode !== 'planner' ? 'none' : 'flex', flex:1, overflow:'hidden', flexDirection:'column' }}>
 
       {rawData.length === 0
         ? <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:300, fontSize:16, color:C.inkMid, opacity:0.6 }}>Loading items…</div>
@@ -1637,7 +1638,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.34</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.37</div>
           </div>
         </div>
         )}
@@ -2104,7 +2105,7 @@ function BuildPlanner() {
 
       </React.Fragment>}
 
-    </React.Fragment>}
+    </div>
 
       {/* ── Catalogue Tour ── */}
       {catTourOpen && (() => {
