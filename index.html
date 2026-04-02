@@ -91,11 +91,11 @@
     .tier-t1  {background:linear-gradient(135deg,#3d1f0a 0%,#6a3518 40%,#8a5030 55%,#6a3518 70%,#3d1f0a 100%); color:#f0b888; border:1px solid #a05828; box-shadow:0 0 6px rgba(180,90,30,.5), inset 0 1px 0 rgba(255,180,100,.15);}  /* Copper */
     .tier-t2  {background:linear-gradient(135deg,#1a1e22 0%,#2e3a44 40%,#4a6070 55%,#2e3a44 70%,#1a1e22 100%); color:#b8d0e0; border:1px solid #4a6070; box-shadow:0 0 6px rgba(100,160,200,.35), inset 0 1px 0 rgba(180,220,255,.15);}  /* Silver */
     .tier-t3  {background:linear-gradient(135deg,#2a1a00 0%,#543200 40%,#7a4e00 55%,#543200 70%,#2a1a00 100%); color:#fcd878; border:1px solid #a06000; box-shadow:0 0 6px rgba(220,140,0,.45), inset 0 1px 0 rgba(255,220,80,.15);}  /* Gold */
-    .tier-mw  {background:linear-gradient(135deg,#c8cdd4 0%,#e8edf2 25%,#f8f0f8 45%,#dde8f0 60%,#e0d8ec 75%,#c8cdd4 100%); color:#2a2a35; border:1px solid #b0bcc8; box-shadow:0 0 8px rgba(200,210,240,.5), inset 0 1px 0 rgba(255,255,255,.8);}  /* Pearl */
+    .tier-mw  {background:linear-gradient(135deg,#8aacc0 0%,#a898c4 22%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%); color:#1a1828; border:1px solid #98a8bc; box-shadow:0 0 8px rgba(140,160,210,.4), inset 0 1px 0 rgba(255,255,255,.25);} /* Pearl */
     .tier-badge{display:inline-block;border-radius:3px;padding:1px 7px;font-size:11px;font-weight:700;font-family:'Crimson Pro',serif;letter-spacing:.04em;}
 
     /* ── Commission Order selects ───────── */
-    .commission-select { appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23a08060'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 5px center; padding-right:18px !important; }
+    .commission-select { appearance:none; -webkit-appearance:none; }
     .commission-select:hover, .commission-select:focus { background-color:var(--table-bg) !important; color:var(--ink) !important; outline:1px solid rgba(232,184,109,0.4); outline-offset:0; }
 
     /* ── Placeholder text ───────────── */
@@ -640,7 +640,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.11')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.18')
       )
     ),
     // ── Table
@@ -1685,7 +1685,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.11</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.18</div>
           </div>
         </div>
         )}
@@ -2425,11 +2425,11 @@ function BuildPlanner() {
           flexShrink: 0,
           background: 'linear-gradient(90deg, #0d2e18 0%, #1d6632 25%, #34A853 50%, #1d6632 75%, #0d2e18 100%)',
         };
-        const sectionLabel = { fontSize: 11, color: 'var(--ink-mid)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 };
-        const totalRowStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0', color: 'var(--ink)' };
-        const bigTotal = { fontSize: 15, fontWeight: 700, color: 'var(--glow, #e8b86d)', padding: '4px 0' };
+        const sectionLabel = { fontSize: 15, color: 'var(--ink-mid)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 };
+        const totalRowStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 15, padding: '2px 0', color: 'var(--ink)' };
+        const bigTotal = { fontSize: 17, fontWeight: 700, color: 'var(--glow, #e8b86d)', padding: '4px 0' };
         const toggleBtnStyle = (active) => ({
-          fontSize:13, padding:'2px 7px', cursor:'pointer', border:'none',
+          fontSize:15, padding:'2px 7px', cursor:'pointer', border:'none',
           fontFamily:"'Crimson Pro', serif",
           background: active ? 'rgba(232,184,109,0.25)' : 'transparent',
           color: active ? 'var(--glow, #e8b86d)' : 'var(--ink-light)',
@@ -2446,7 +2446,7 @@ function BuildPlanner() {
           <div style={panelStyle}>
             {/* Header */}
             <div style={headerStyle}>
-              <span style={{ fontFamily:"'Cinzel',serif", fontSize: 14, fontWeight: 700, color: 'var(--glow, #e8b86d)', letterSpacing: '0.06em' }}>
+              <span style={{ fontFamily:"'Cinzel',serif", fontSize: 16, fontWeight: 700, color: 'var(--glow, #e8b86d)', letterSpacing: '0.06em' }}>
                 📋 Commission Order
               </span>
               <button onClick={() => setOrderOpen(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:16, padding:'0 2px' }}>✕</button>
@@ -2455,37 +2455,41 @@ function BuildPlanner() {
             {/* Order lines — dominant section */}
             <div style={{ flex: 1, overflowY: 'scroll', padding: '8px 10px' }}>
               {orderLines.length === 0 && (
-                <div style={{ color: 'var(--ink-light)', fontSize: 13, textAlign: 'center', marginTop: 24, fontStyle: 'italic' }}>
+                <div style={{ color: 'var(--ink-light)', fontSize: 15, textAlign: 'center', marginTop: 24, fontStyle: 'italic' }}>
                   No items added yet.<br/>Use + on any catalogue row.
                 </div>
               )}
               {orderLines.map(line => {
-                const cxpTotal = (parseFloat(line.item.cxp)||0) + line.mw;
+                const baseCxp = parseFloat(line.item.cxp)||0;
+                const cxpTotal = baseCxp + line.mw;
                 return (
                   <div key={line.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '7px 0', display:'flex', flexDirection:'column', gap:5 }}>
                     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:6 }}>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', display:'block',
+                        <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', display:'block',
                           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
                           title={line.item.name}>{line.item.name}</span>
-                        <span style={{ fontSize: 13, color: 'var(--ink-light)' }}>
-                          {line.item.craft} · {line.item.tier || '—'} · PER: <span style={{color:'#6ee87a', fontWeight:600}}>{line.item.per || '?'}</span> · CXP: <span style={{color:'var(--ink-mid)', fontWeight:600}}>{cxpTotal}</span>
+                        <span style={{ fontSize: 15, color: 'var(--ink-light)' }}>
+                          {line.item.craft} · {line.item.tier || '—'} · PER: <span style={{color:'#6ee87a', fontWeight:600}}>{line.item.per || '?'}</span> · CXP: <span style={{color:'var(--ink-mid)', fontWeight:600}}>{baseCxp}{line.mw > 0 ? <span style={{color:'#c8cdd4'}}> +{line.mw}</span> : ''}</span>
                         </span>
                       </div>
                       <button onClick={() => removeOrderLine(line.id)}
-                        style={{ background:'none', border:'none', color:'var(--ink-light)', cursor:'pointer', fontSize:14, flexShrink:0, padding:'0 2px' }}
+                        style={{ background:'none', border:'none', color:'var(--ink-light)', cursor:'pointer', fontSize:16, flexShrink:0, padding:'0 2px' }}
                         title="Remove">✕</button>
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <select value={line.mw} onChange={e => setLineMw(line.id, parseInt(e.target.value,10))}
-                        className="commission-select"
-                        style={{ fontSize:11, fontFamily:"'Crimson Pro', serif", background:'var(--table-bg)', color:'var(--ink)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, padding:'1px 4px', cursor:'pointer' }}>
-                        <option value={0}>No Masterwork</option>
-                        <option value={12}>MW+12 CXP</option>
-                        <option value={24}>MW+24 CXP</option>
-                        <option value={36}>MW+36 CXP</option>
-                        <option value={48}>MW+48 CXP</option>
-                      </select>
+                      <div style={{ position:'relative', display:'inline-block' }}>
+                        <select value={line.mw} onChange={e => setLineMw(line.id, parseInt(e.target.value,10))}
+                          className="commission-select"
+                          style={{ fontSize:13, fontFamily:"'Crimson Pro', serif", background:'var(--table-bg)', color:'var(--ink)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, padding:'1px 20px 1px 4px', cursor:'pointer' }}>
+                          <option value={0}>No Masterwork</option>
+                          <option value={12}>MW+12 CXP</option>
+                          <option value={24}>MW+24 CXP</option>
+                          <option value={36}>MW+36 CXP</option>
+                          <option value={48}>MW+48 CXP</option>
+                        </select>
+                        <span style={{ position:'absolute', right:4, top:'50%', transform:'translateY(-50%)', fontSize:12, color:'#a08060', pointerEvents:'none', lineHeight:1 }}>▾</span>
+                      </div>
                       <div style={{ display:'flex', gap:0, borderRadius:4, overflow:'hidden', border:'1px solid rgba(255,255,255,0.15)', marginLeft:'auto' }}>
                         <button style={toggleBtnStyle(line.sourced)} onClick={() => setLineSourced(line.id, true)}>Mats Req.</button>
                         <button style={toggleBtnStyle(!line.sourced)} onClick={() => setLineSourced(line.id, false)}>Mats Prov.</button>
@@ -2524,28 +2528,31 @@ function BuildPlanner() {
 
                 {/* Markup editor — T1/T2/T3 + MW */}
                 <div>
-                  <div style={sectionLabel}>CXP Markup Rate</div>
+                  <div style={{ ...sectionLabel, display:'flex', alignItems:'baseline', gap:6 }}>
+                    <span>CXP Markup Rate</span>
+                    <span style={{ fontSize:12, fontStyle:'italic', color:'var(--ink-light)', textTransform:'none', letterSpacing:0, fontWeight:400 }}>coin value per CXP</span>
+                  </div>
                   <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                     {tierMarkupDefs.map(({ key, cls, label }) => (
                       <div key={key} className={`tier-badge ${cls}`}
                         style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0, padding:'2px 3px', borderRadius:4, flex:1, minWidth:0 }}>
-                        <span style={{ fontWeight:700, fontSize:12, marginRight:2, whiteSpace:'nowrap' }}>{label}</span>
+                        <span style={{ fontWeight:700, fontSize:14, marginRight:2, whiteSpace:'nowrap' }}>{label}</span>
                         <button onClick={() => setMarkups(prev => ({ ...prev, [key]: Math.max(0, parseFloat((prev[key] - 0.25).toFixed(2))) }))}
-                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
-                        <span style={{ fontSize:12, fontWeight:700, minWidth:22, textAlign:'center' }}>{markups[key].toFixed(2)}</span>
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:15, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
+                        <span style={{ fontSize:14, fontWeight:700, minWidth:22, textAlign:'center' }}>{markups[key].toFixed(2)}</span>
                         <button onClick={() => setMarkups(prev => ({ ...prev, [key]: parseFloat((prev[key] + 0.25).toFixed(2)) }))}
-                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:15, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
                       </div>
                     ))}
                     {/* MW Markup — pearl badge */}
                     <div className="tier-badge tier-mw"
                       style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0, padding:'2px 3px', borderRadius:4, flex:1, minWidth:0 }}>
-                      <span style={{ fontWeight:700, fontSize:12, marginRight:2, whiteSpace:'nowrap' }}>MW</span>
+                      <span style={{ fontWeight:700, fontSize:14, marginRight:2, whiteSpace:'nowrap' }}>MW</span>
                       <button onClick={() => setMwMarkup(prev => Math.max(0, parseFloat((prev - 0.25).toFixed(2))))}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
-                      <span style={{ fontSize:12, fontWeight:700, minWidth:22, textAlign:'center' }}>{mwMarkup.toFixed(2)}</span>
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:15, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
+                      <span style={{ fontSize:14, fontWeight:700, minWidth:22, textAlign:'center' }}>{mwMarkup.toFixed(2)}</span>
                       <button onClick={() => setMwMarkup(prev => parseFloat((prev + 0.25).toFixed(2)))}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:15, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
                     </div>
                   </div>
                 </div>
@@ -2585,7 +2592,7 @@ function BuildPlanner() {
                 {matList.length > 0 && (
                   <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:6 }}>
                     <div style={sectionLabel}>Materials Needed</div>
-                    <div style={{ fontSize:12, color:'var(--ink-light)' }}>
+                    <div style={{ fontSize:14, color:'var(--ink-light)' }}>
                       {matList.map(([name, needed]) => {
                         const entry = catLookup[name];
                         const expandable = !!(entry && entry.materials);
@@ -2599,7 +2606,7 @@ function BuildPlanner() {
                               <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                                 {expandable ? (
                                   <button onClick={() => setExpandedMats(prev => ({...prev, [name]: !prev[name]}))}
-                                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-mid)', fontSize:9, padding:'0 2px', lineHeight:1 }}>
+                                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-mid)', fontSize:11, padding:'0 2px', lineHeight:1 }}>
                                     {isExpanded ? '▼' : '▶'}
                                   </button>
                                 ) : <span style={{ display:'inline-block', width:14 }} />}
@@ -2609,7 +2616,7 @@ function BuildPlanner() {
                             </div>
                             {isExpanded && (
                               <div style={{ marginLeft:18, marginBottom:2, borderLeft:'1px solid rgba(255,255,255,0.1)', paddingLeft:6 }}>
-                                <div style={{ color:'var(--ink-light)', opacity:0.6, fontSize:11, fontStyle:'italic', paddingBottom:1 }}>
+                                <div style={{ color:'var(--ink-light)', opacity:0.6, fontSize:13, fontStyle:'italic', paddingBottom:1 }}>
                                   {runs} run{runs !== 1 ? 's' : ''} · yield ×{yv}
                                 </div>
                                 {subMats.map(sub => (
@@ -2632,11 +2639,11 @@ function BuildPlanner() {
                   <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:6 }}>
                     <div style={{ ...sectionLabel, color:'#6ee87a', cursor:'pointer', display:'flex', alignItems:'center', gap:4, userSelect:'none' }}
                       onClick={() => setExpandedMats(prev => ({...prev, __components__: !prev.__components__}))}>
-                      <span style={{ fontSize:9 }}>{expandedMats.__components__ ? '▼' : '▶'}</span>
+                      <span style={{ fontSize:11 }}>{expandedMats.__components__ ? '▼' : '▶'}</span>
                       Components Required
                     </div>
                     {expandedMats.__components__ && (
-                      <div style={{ fontSize:12 }}>
+                      <div style={{ fontSize:14 }}>
                         {resolvedList.map(([name, qty]) => (
                           <div key={name} style={{ display:'flex', justifyContent:'space-between', padding:'2px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
                             <span style={{ color:'var(--ink)' }}>{name}</span>
@@ -2651,11 +2658,11 @@ function BuildPlanner() {
                 {/* Actions */}
                 <div style={{ display:'flex', gap:6, paddingTop:2 }}>
                   <button onClick={() => navigator.clipboard.writeText(buildCopyText())}
-                    style={{ flex:1, fontSize:12, padding:'5px 0', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'var(--ink-mid)', cursor:'pointer', fontFamily:"'Crimson Pro', serif" }}>
+                    style={{ flex:1, fontSize:14, padding:'5px 0', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'var(--ink-mid)', cursor:'pointer', fontFamily:"'Crimson Pro', serif" }}>
                     Copy Summary
                   </button>
                   <button onClick={clearOrder}
-                    style={{ fontSize:12, padding:'5px 10px', background:'rgba(200,50,50,0.15)', border:'1px solid rgba(200,50,50,0.3)', borderRadius:4, color:'#e07070', cursor:'pointer', fontFamily:"'Crimson Pro', serif" }}>
+                    style={{ fontSize:14, padding:'5px 10px', background:'rgba(200,50,50,0.15)', border:'1px solid rgba(200,50,50,0.3)', borderRadius:4, color:'#e07070', cursor:'pointer', fontFamily:"'Crimson Pro', serif" }}>
                     Clear
                   </button>
                 </div>
