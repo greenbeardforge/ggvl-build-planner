@@ -94,6 +94,10 @@
     .tier-mw  {background:linear-gradient(135deg,#c8cdd4 0%,#e8edf2 25%,#f8f0f8 45%,#dde8f0 60%,#e0d8ec 75%,#c8cdd4 100%); color:#2a2a35; border:1px solid #b0bcc8; box-shadow:0 0 8px rgba(200,210,240,.5), inset 0 1px 0 rgba(255,255,255,.8);}  /* Pearl */
     .tier-badge{display:inline-block;border-radius:3px;padding:1px 7px;font-size:11px;font-weight:700;font-family:'Crimson Pro',serif;letter-spacing:.04em;}
 
+    /* ── Commission Order selects ───────── */
+    .commission-select { appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23a08060'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 5px center; padding-right:18px !important; }
+    .commission-select:hover, .commission-select:focus { background-color:var(--table-bg) !important; color:var(--ink) !important; outline:1px solid rgba(232,184,109,0.4); outline-offset:0; }
+
     /* ── Placeholder text ───────────── */
     ::placeholder { color: #7a6840; opacity: 1; }
 
@@ -636,7 +640,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.6')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.11')
       )
     ),
     // ── Table
@@ -787,6 +791,8 @@ function BuildPlanner() {
   const [expandedMats,  setExpandedMats] = useState({});
   const [markups,       setMarkups]      = useState({ T1: 0.5, T2: 0.75, T3: 1.5 });
   const [mwMarkup,      setMwMarkup]     = useState(1.0);
+  const [footerHeight,  setFooterHeight] = useState(220);
+  const isFooterResizing = React.useRef(false);
   let orderIdCounter = React.useRef(0);
   const MW_MARKUP = { T1: 0.5, T2: 0.75, T3: 1.5 };
   const mwCxpOptions = [0, 12, 24, 36, 48];
@@ -1679,7 +1685,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.6</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.11</div>
           </div>
         </div>
         )}
@@ -2423,7 +2429,7 @@ function BuildPlanner() {
         const totalRowStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0', color: 'var(--ink)' };
         const bigTotal = { fontSize: 15, fontWeight: 700, color: 'var(--glow, #e8b86d)', padding: '4px 0' };
         const toggleBtnStyle = (active) => ({
-          fontSize:11, padding:'2px 7px', cursor:'pointer', border:'none',
+          fontSize:13, padding:'2px 7px', cursor:'pointer', border:'none',
           fontFamily:"'Crimson Pro', serif",
           background: active ? 'rgba(232,184,109,0.25)' : 'transparent',
           color: active ? 'var(--glow, #e8b86d)' : 'var(--ink-light)',
@@ -2447,7 +2453,7 @@ function BuildPlanner() {
             </div>
 
             {/* Order lines — dominant section */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
+            <div style={{ flex: 1, overflowY: 'scroll', padding: '8px 10px' }}>
               {orderLines.length === 0 && (
                 <div style={{ color: 'var(--ink-light)', fontSize: 13, textAlign: 'center', marginTop: 24, fontStyle: 'italic' }}>
                   No items added yet.<br/>Use + on any catalogue row.
@@ -2459,10 +2465,10 @@ function BuildPlanner() {
                   <div key={line.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '7px 0', display:'flex', flexDirection:'column', gap:5 }}>
                     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:6 }}>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', display:'block',
+                        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', display:'block',
                           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
                           title={line.item.name}>{line.item.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--ink-light)' }}>
+                        <span style={{ fontSize: 13, color: 'var(--ink-light)' }}>
                           {line.item.craft} · {line.item.tier || '—'} · PER: <span style={{color:'#6ee87a', fontWeight:600}}>{line.item.per || '?'}</span> · CXP: <span style={{color:'var(--ink-mid)', fontWeight:600}}>{cxpTotal}</span>
                         </span>
                       </div>
@@ -2472,6 +2478,7 @@ function BuildPlanner() {
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <select value={line.mw} onChange={e => setLineMw(line.id, parseInt(e.target.value,10))}
+                        className="commission-select"
                         style={{ fontSize:11, fontFamily:"'Crimson Pro', serif", background:'var(--table-bg)', color:'var(--ink)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, padding:'1px 4px', cursor:'pointer' }}>
                         <option value={0}>No Masterwork</option>
                         <option value={12}>MW+12 CXP</option>
@@ -2489,9 +2496,31 @@ function BuildPlanner() {
               })}
             </div>
 
-            {/* Footer — capped, scrollable */}
+            {/* Drag handle */}
             {orderLines.length > 0 && (
-              <div style={{ flexShrink:0, borderTop:'1px solid rgba(255,255,255,0.1)', padding:'10px 12px', display:'flex', flexDirection:'column', gap:8, background:'rgba(0,0,0,0.15)', maxHeight:'38%', overflowY:'auto' }}>
+              <div onMouseDown={e => {
+                isFooterResizing.current = true;
+                const startY = e.clientY;
+                const startH = footerHeight;
+                const onMove = (ev) => {
+                  if (!isFooterResizing.current) return;
+                  const delta = startY - ev.clientY;
+                  setFooterHeight(Math.max(80, Math.min(520, startH + delta)));
+                };
+                const onUp = () => { isFooterResizing.current = false; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+              style={{ flexShrink:0, height:6, cursor:'row-resize', background:'rgba(255,255,255,0.04)',
+                borderTop:'1px solid rgba(255,255,255,0.08)', borderBottom:'1px solid rgba(255,255,255,0.08)',
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <div style={{ width:28, height:2, borderRadius:2, background:'rgba(255,255,255,0.2)' }} />
+              </div>
+            )}
+
+            {/* Footer — height controlled by drag handle */}
+            {orderLines.length > 0 && (
+              <div style={{ flexShrink:0, borderTop:'none', padding:'10px 12px', display:'flex', flexDirection:'column', gap:8, background:'rgba(0,0,0,0.15)', height:footerHeight, overflowY:'scroll' }}>
 
                 {/* Markup editor — T1/T2/T3 + MW */}
                 <div>
@@ -2500,23 +2529,23 @@ function BuildPlanner() {
                     {tierMarkupDefs.map(({ key, cls, label }) => (
                       <div key={key} className={`tier-badge ${cls}`}
                         style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0, padding:'2px 3px', borderRadius:4, flex:1, minWidth:0 }}>
-                        <span style={{ fontWeight:700, fontSize:10, marginRight:2, whiteSpace:'nowrap' }}>{label}</span>
+                        <span style={{ fontWeight:700, fontSize:12, marginRight:2, whiteSpace:'nowrap' }}>{label}</span>
                         <button onClick={() => setMarkups(prev => ({ ...prev, [key]: Math.max(0, parseFloat((prev[key] - 0.25).toFixed(2))) }))}
-                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
-                        <span style={{ fontSize:10, fontWeight:700, minWidth:22, textAlign:'center' }}>{markups[key].toFixed(2)}</span>
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
+                        <span style={{ fontSize:12, fontWeight:700, minWidth:22, textAlign:'center' }}>{markups[key].toFixed(2)}</span>
                         <button onClick={() => setMarkups(prev => ({ ...prev, [key]: parseFloat((prev[key] + 0.25).toFixed(2)) }))}
-                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
                       </div>
                     ))}
                     {/* MW Markup — pearl badge */}
                     <div className="tier-badge tier-mw"
                       style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0, padding:'2px 3px', borderRadius:4, flex:1, minWidth:0 }}>
-                      <span style={{ fontWeight:700, fontSize:10, marginRight:2, whiteSpace:'nowrap' }}>MW</span>
+                      <span style={{ fontWeight:700, fontSize:12, marginRight:2, whiteSpace:'nowrap' }}>MW</span>
                       <button onClick={() => setMwMarkup(prev => Math.max(0, parseFloat((prev - 0.25).toFixed(2))))}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
-                      <span style={{ fontSize:10, fontWeight:700, minWidth:22, textAlign:'center' }}>{mwMarkup.toFixed(2)}</span>
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
+                      <span style={{ fontSize:12, fontWeight:700, minWidth:22, textAlign:'center' }}>{mwMarkup.toFixed(2)}</span>
                       <button onClick={() => setMwMarkup(prev => parseFloat((prev + 0.25).toFixed(2)))}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:13, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
                     </div>
                   </div>
                 </div>
