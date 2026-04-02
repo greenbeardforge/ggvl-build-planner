@@ -91,6 +91,7 @@
     .tier-t1  {background:linear-gradient(135deg,#3d1f0a 0%,#6a3518 40%,#8a5030 55%,#6a3518 70%,#3d1f0a 100%); color:#f0b888; border:1px solid #a05828; box-shadow:0 0 6px rgba(180,90,30,.5), inset 0 1px 0 rgba(255,180,100,.15);}  /* Copper */
     .tier-t2  {background:linear-gradient(135deg,#1a1e22 0%,#2e3a44 40%,#4a6070 55%,#2e3a44 70%,#1a1e22 100%); color:#b8d0e0; border:1px solid #4a6070; box-shadow:0 0 6px rgba(100,160,200,.35), inset 0 1px 0 rgba(180,220,255,.15);}  /* Silver */
     .tier-t3  {background:linear-gradient(135deg,#2a1a00 0%,#543200 40%,#7a4e00 55%,#543200 70%,#2a1a00 100%); color:#fcd878; border:1px solid #a06000; box-shadow:0 0 6px rgba(220,140,0,.45), inset 0 1px 0 rgba(255,220,80,.15);}  /* Gold */
+    .tier-mw  {background:linear-gradient(135deg,#c8cdd4 0%,#e8edf2 25%,#f8f0f8 45%,#dde8f0 60%,#e0d8ec 75%,#c8cdd4 100%); color:#2a2a35; border:1px solid #b0bcc8; box-shadow:0 0 8px rgba(200,210,240,.5), inset 0 1px 0 rgba(255,255,255,.8);}  /* Pearl */
     .tier-badge{display:inline-block;border-radius:3px;padding:1px 7px;font-size:11px;font-weight:700;font-family:'Crimson Pro',serif;letter-spacing:.04em;}
 
     /* ── Placeholder text ───────────── */
@@ -191,6 +192,7 @@ const CRAFT_BG_CAT = { BS: '#3d3220', LW: '#3d3220', TINK: '#3d3220', ALCH: '#3d
 const CRAFT_TEXT   = { BS: '#34a853', LW: '#c8973a', TINK: '#b0b0b0', ALCH: '#8989eb', WW: '#edbe00', SURV: '#c05040' };
 
 const CAT_COLS = [
+  { key:'_order',      label:''                   },
   { key:'craft',       label:'Craft'              },
   { key:'category',    label:'Category'           },
   { key:'name',        label:'Item Name'          },
@@ -259,7 +261,7 @@ function CraftPill({ craft }) {
   }, craft);
 }
 
-function CatPopup({ item, onClose }) {
+function CatPopup({ item, onClose, onAddToOrder }) {
   const pricing = [
     { key:'cost',  label:'Cost',  val: item.cost },
     { key:'sale',  label:'Sale',  val: item.sale },
@@ -366,20 +368,19 @@ function CatPopup({ item, onClose }) {
           matParts.length > 0 ? R('div', { style:{ flex:'1 1 0' } },
             R('span', { className:'field-label' }, 'Materials'),
             matParts.map((p, i) =>
-              R('div', { key: i, style:{ fontSize:15, padding:'3px 0', borderBottom:'1px solid rgba(255,255,255,0.06)', color:'var(--ink)' } }, p)
+              R('div', { key: i, style:{ fontSize:15, padding:'3px 0', borderBottom:'1px solid rgba(255,255,255,0.06)', color:'var(--ink-light)' } }, p)
             )
           ) : null
         ) : null,
 
-        // Stats — raw value only, no label prefix
+        // Stats — each on its own full-width row
         stats.length > 0 ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'Stats'),
           R('div', null,
             stats.map(s =>
               R('div', { key: s.label, style: rowStyle },
-                String(s.val).split('\n').filter(Boolean).map((line, i) =>
-                  R('div', { key: i }, line)
-                )
+                R('span', { style: labelStyle }, s.label + ':'),
+                R('span', { style:{ ...valStyle, marginLeft:8 } }, String(s.val))
               )
             )
           )
@@ -388,21 +389,26 @@ function CatPopup({ item, onClose }) {
         // Description
         item.description ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'Description'),
-          R('div', { style:{ fontSize:15, fontStyle:'italic', color:'var(--ink-light)' } }, item.description)
+          R('div', { style:{ fontSize:15, fontStyle:'italic' } }, item.description)
         ) : null,
 
         // OOC / Misc
         item.ooc ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'OOC Notes'),
-          R('div', { style:{ fontSize:15, color:'var(--ink-light)' } }, item.ooc)
+          R('div', { style:{ fontSize:15 } }, item.ooc)
         ) : null,
         item.misc ? R('div', { className:'full' },
           R('span', { className:'field-label' }, 'Miscellaneous'),
-          R('div', { style:{ fontSize:15, color:'var(--ink-light)' } }, item.misc)
+          R('div', { style:{ fontSize:15 } }, item.misc)
         ) : null
       ),
 
-      R('div', { className:'modal-foot' },
+      R('div', { className:'modal-foot', style:{ display:'flex', gap:8, justifyContent:'flex-end' } },
+        onAddToOrder ? R('button', {
+          className:'btn btn-confirm',
+          style:{ padding:'6px 18px', fontSize:14, fontWeight:600 },
+          onClick: () => { onAddToOrder(item); onClose(); }
+        }, '+ Add to Order') : null,
         R('button', { className:'btn btn-cancel', onClick: onClose }, 'Close')
       )
     )
@@ -410,7 +416,7 @@ function CatPopup({ item, onClose }) {
 }
 
 function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, craft, setCraft, tier, setTier, category, setCategory, skill, setSkill,
-  sidebarOpen, setSidebarOpen, sidebarWidth, sidebarRef, startResize, S, hidden }) {
+  sidebarOpen, setSidebarOpen, sidebarWidth, sidebarRef, startResize, S, hidden, onAddToOrder }) {
   const [popup, setPopup] = useState(null);
   const [catSortCol, setCatSortCol] = useState('craft');
   const [catSortDir, setCatSortDir] = useState('asc');
@@ -630,7 +636,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.9.37')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.6')
       )
     ),
     // ── Table
@@ -643,7 +649,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
               return R('th', {
                 key: col.key,
                 onClick: sortable ? () => catToggleSort(col.key) : undefined,
-                style:{ ...thStyle, ...thStyleFor(col.key), ...(i===2 ? { position:'sticky', left:0, zIndex:3 } : {}), ...(sortable ? thSortStyle : {}) }
+                style:{ ...thStyle, ...thStyleFor(col.key), ...(i===3 ? { position:'sticky', left:0, zIndex:3 } : {}), ...(sortable ? thSortStyle : {}) }
               },
                 col.label, sortable ? R('span', { style:{ opacity: catSortCol===col.key ? 1 : 0.35, fontSize:9, marginLeft:1 } }, catSortArrow(col.key)) : null
               );
@@ -658,7 +664,13 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
               CAT_COLS.map((col, ci) => {
                 let val = item[col.key];
                 let cell;
-                if (col.key === 'craft') {
+                if (col.key === '_order') {
+                  cell = R('button', {
+                    title: 'Add to Order',
+                    onClick: e => { e.stopPropagation(); onAddToOrder && onAddToOrder(item); },
+                    style:{ background:'none', border:'1px solid var(--ink-light)', borderRadius:4, color:'var(--ink-mid)', cursor:'pointer', fontSize:13, lineHeight:1, padding:'2px 5px', opacity:0.7 }
+                  }, '+');
+                } else if (col.key === 'craft') {
                   cell = R(CraftPill, { craft: val || '' });
                 } else if (col.key === 'tier') {
                   cell = val ? R('span', { className: tierClass(val) }, tierLabel(val)) : null;
@@ -686,7 +698,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                     : '';
                 }
                 const colOver = COL_STYLE[col.key] || {};
-                const baseTd  = ci===2 ? stickyTd : tdStyle;
+                const baseTd  = ci===3 ? stickyTd : tdStyle;
                 return R('td', { key:col.key, style:{ ...baseTd, ...colOver } }, cell);
               })
             )
@@ -695,7 +707,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
       )
     ),
     // ── Popup
-    popup ? R(CatPopup, { item: popup, onClose: () => setPopup(null) }) : null
+    popup ? R(CatPopup, { item: popup, onClose: () => setPopup(null), onAddToOrder }) : null
   );
 }
 
@@ -768,6 +780,25 @@ function BuildPlanner() {
   const filtersActive = search !== '' || catFilter !== 'All Categories' || skillFilter !== 'All Skills' || craftFilter.size < 5 || tierFilter.size < 4;
   const [appMode,      setAppMode]     = useState('catalogue');
   const [guildOpen,    setGuildOpen]   = useState(false);
+
+  // ── Commission Order state ───────────────────────────────────────────────
+  const [orderLines,    setOrderLines]   = useState([]);
+  const [orderOpen,     setOrderOpen]    = useState(false);
+  const [expandedMats,  setExpandedMats] = useState({});
+  const [markups,       setMarkups]      = useState({ T1: 0.5, T2: 0.75, T3: 1.5 });
+  const [mwMarkup,      setMwMarkup]     = useState(1.0);
+  let orderIdCounter = React.useRef(0);
+  const MW_MARKUP = { T1: 0.5, T2: 0.75, T3: 1.5 };
+  const mwCxpOptions = [0, 12, 24, 36, 48];
+  const onAddToOrder = (item) => {
+    const id = ++orderIdCounter.current;
+    setOrderLines(prev => [...prev, { item, id, mw: 0, sourced: true }]);
+    setOrderOpen(true);
+  };
+  const removeOrderLine = (id) => setOrderLines(prev => prev.filter(l => l.id !== id));
+  const setLineMw = (id, mw) => setOrderLines(prev => prev.map(l => l.id === id ? {...l, mw} : l));
+  const setLineSourced = (id, sourced) => setOrderLines(prev => prev.map(l => l.id === id ? {...l, sourced} : l));
+  const clearOrder = () => { setOrderLines([]); setExpandedMats({}); };
 
   // ── Catalogue data: cache-first, background refresh ──────────────────────
   function transformItems(items) {
@@ -1505,6 +1536,15 @@ function BuildPlanner() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {appMode === 'planner' && selCount > 0 && <span style={S.selCount}>{selCount} selected</span>}
+            <button type="button" onClick={() => setOrderOpen(o => !o)}
+              style={{ background: orderLines.length > 0 ? 'rgba(232,184,109,0.15)' : 'none',
+                border:`1px solid ${orderLines.length > 0 ? 'rgba(232,184,109,0.5)' : 'rgba(200,151,58,.25)'}`,
+                borderRadius:4, padding:'3px 9px', cursor:'pointer',
+                color: orderLines.length > 0 ? C.glow : 'rgba(232,184,109,.4)',
+                fontSize:12, fontWeight:600, flexShrink:0, transition:'all .2s' }}
+              title="Commission Order">
+              📋{orderLines.length > 0 ? ` ${orderLines.length}` : ''}
+            </button>
             <button type="button" onClick={() => { if (appMode === 'catalogue') { setCatTourStep(0); setCatTourOpen(true); } else { setTourStep(0); setTourOpen(true); } }}
               style={{ background:'none', border:`1px solid rgba(200,151,58,.4)`, borderRadius:'50%',
                 width:26, height:26, cursor:'pointer', color:C.glow, fontSize:13, fontWeight:700,
@@ -1529,9 +1569,10 @@ function BuildPlanner() {
         sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
         sidebarWidth={sidebarWidth} sidebarRef={sidebarRef} startResize={startResize}
         S={S}
+        onAddToOrder={onAddToOrder}
       />
 
-      <div style={{ display: appMode !== 'planner' ? 'none' : 'flex', flex:1, overflow:'hidden', flexDirection:'column' }}>
+      {appMode === 'planner' && <React.Fragment>
 
       {rawData.length === 0
         ? <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:300, fontSize:16, color:C.inkMid, opacity:0.6 }}>Loading items…</div>
@@ -1638,7 +1679,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.9.37</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.6</div>
           </div>
         </div>
         )}
@@ -2105,7 +2146,7 @@ function BuildPlanner() {
 
       </React.Fragment>}
 
-    </div>
+    </React.Fragment>}
 
       {/* ── Catalogue Tour ── */}
       {catTourOpen && (() => {
@@ -2284,6 +2325,317 @@ function BuildPlanner() {
         </div>
       )}
 
+
+      {/* ── Commission Order Sidebar ── */}
+      {(() => {
+        const getTierKey = (tier) => tier && tier.match(/T[123]/) ? tier.match(/T[123]/)[0] : 'T1';
+        const parseMats = (matStr) => {
+          if (!matStr) return [];
+          return matStr.split(/, (?=\d+[×x])/).map(p => {
+            const m = p.match(/^(\d+)[×x]\s*(.+)$/);
+            return m ? { qty: parseInt(m[1],10), name: m[2].trim() } : null;
+          }).filter(Boolean);
+        };
+
+        // Per-line cost helpers — base CXP uses tier markup, MW uses mwMarkup
+        const getLineMarkup = (line) => markups[getTierKey(line.item.tier)] ?? 0.5;
+        const getLineBaseCxpCost = (line) => (parseFloat(line.item.cxp)||0) * getLineMarkup(line);
+        const getLineMwCost = (line) => line.mw * mwMarkup;
+        const getLineCxpCost = (line) => getLineBaseCxpCost(line) + getLineMwCost(line);
+        const getLinePer = (line) => line.sourced ? (parseFloat(line.item.per)||0) : 0;
+
+        // Order totals — hours are flat, cost uses markups
+        const totalCxp = orderLines.reduce((sum, l) => sum + (parseFloat(l.item.cxp)||0) + l.mw, 0);
+        const totalBaseCxpCost = orderLines.reduce((sum, l) => sum + getLineBaseCxpCost(l), 0);
+        const totalMwCost = orderLines.reduce((sum, l) => sum + getLineMwCost(l), 0);
+        const totalCxpCost = totalBaseCxpCost + totalMwCost;
+        const totalPer = orderLines.reduce((sum, l) => sum + getLinePer(l), 0);
+        const totalCharge = totalPer + totalCxpCost;
+
+        // Catalogue lookup
+        const catLookup = {};
+        (catalogueData || []).forEach(item => {
+          if (item.name) catLookup[item.name] = { materials: item.materials || '', yield_val: parseFloat(item.yield_val) || 1 };
+        });
+
+        // Aggregate primary materials from sourced lines
+        const matMap = {};
+        orderLines.filter(l => l.sourced).forEach(line => {
+          parseMats(line.item.materials).forEach(({ qty, name }) => {
+            matMap[name] = (matMap[name] || 0) + qty;
+          });
+        });
+        const matList = Object.entries(matMap).sort((a,b) => a[0].localeCompare(b[0]));
+
+        // Resolved components — replace craftable items with base components
+        const resolvedMap = {};
+        matList.forEach(([name, needed]) => {
+          const entry = catLookup[name];
+          if (entry && entry.materials) {
+            const yv = entry.yield_val || 1;
+            const runs = Math.ceil(needed / yv);
+            parseMats(entry.materials).forEach(({ qty: subQty, name: subName }) => {
+              resolvedMap[subName] = (resolvedMap[subName] || 0) + runs * subQty;
+            });
+          } else {
+            resolvedMap[name] = (resolvedMap[name] || 0) + needed;
+          }
+        });
+        const resolvedList = Object.entries(resolvedMap).sort((a,b) => a[0].localeCompare(b[0]));
+
+        const buildCopyText = () => {
+          const out = ['=== COMMISSION ORDER ===', ''];
+          orderLines.forEach(l => {
+            const mwStr = l.mw > 0 ? ` [MW+${l.mw}]` : '';
+            const cxpTotal = (parseFloat(l.item.cxp)||0) + l.mw;
+            out.push(`${l.item.name} (${l.item.craft} ${l.item.tier||''})${mwStr} — ${l.sourced ? 'Mats Required' : 'Mats Provided'}`);
+            out.push(`  PER: ${l.item.per||'?'} coins | CXP: ${cxpTotal}`);
+          });
+          out.push('');
+          out.push(`Total CXP: ${totalCxp} hrs`);
+          out.push(`Order Cost: ${Math.ceil(totalCharge)} coins`);
+          if (resolvedList.length) {
+            out.push('');
+            out.push('Components Required:');
+            resolvedList.forEach(([name, qty]) => out.push(`  x${qty} ${name}`));
+          }
+          return out.join('\n');
+        };
+
+        const panelStyle = {
+          position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 1500,
+          width: orderOpen ? 340 : 0,
+          overflow: 'hidden',
+          transition: 'width 0.25s ease',
+          display: 'flex', flexDirection: 'column',
+          background: 'var(--parchment)',
+          borderLeft: '2px solid var(--parch-dark, #5a4a2a)',
+          boxShadow: orderOpen ? '-4px 0 24px rgba(0,0,0,0.5)' : 'none',
+        };
+        const headerStyle = {
+          padding: '10px 12px 8px',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
+          background: 'linear-gradient(90deg, #0d2e18 0%, #1d6632 25%, #34A853 50%, #1d6632 75%, #0d2e18 100%)',
+        };
+        const sectionLabel = { fontSize: 11, color: 'var(--ink-mid)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 };
+        const totalRowStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0', color: 'var(--ink)' };
+        const bigTotal = { fontSize: 15, fontWeight: 700, color: 'var(--glow, #e8b86d)', padding: '4px 0' };
+        const toggleBtnStyle = (active) => ({
+          fontSize:11, padding:'2px 7px', cursor:'pointer', border:'none',
+          fontFamily:"'Crimson Pro', serif",
+          background: active ? 'rgba(232,184,109,0.25)' : 'transparent',
+          color: active ? 'var(--glow, #e8b86d)' : 'var(--ink-light)',
+          fontWeight: active ? 700 : 400,
+        });
+
+        const tierMarkupDefs = [
+          { key:'T1', cls:'tier-t1', label:'T1' },
+          { key:'T2', cls:'tier-t2', label:'T2' },
+          { key:'T3', cls:'tier-t3', label:'T3' },
+        ];
+
+        return (
+          <div style={panelStyle}>
+            {/* Header */}
+            <div style={headerStyle}>
+              <span style={{ fontFamily:"'Cinzel',serif", fontSize: 14, fontWeight: 700, color: 'var(--glow, #e8b86d)', letterSpacing: '0.06em' }}>
+                📋 Commission Order
+              </span>
+              <button onClick={() => setOrderOpen(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:16, padding:'0 2px' }}>✕</button>
+            </div>
+
+            {/* Order lines — dominant section */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
+              {orderLines.length === 0 && (
+                <div style={{ color: 'var(--ink-light)', fontSize: 13, textAlign: 'center', marginTop: 24, fontStyle: 'italic' }}>
+                  No items added yet.<br/>Use + on any catalogue row.
+                </div>
+              )}
+              {orderLines.map(line => {
+                const cxpTotal = (parseFloat(line.item.cxp)||0) + line.mw;
+                return (
+                  <div key={line.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '7px 0', display:'flex', flexDirection:'column', gap:5 }}>
+                    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:6 }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', display:'block',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
+                          title={line.item.name}>{line.item.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--ink-light)' }}>
+                          {line.item.craft} · {line.item.tier || '—'} · PER: <span style={{color:'#6ee87a', fontWeight:600}}>{line.item.per || '?'}</span> · CXP: <span style={{color:'var(--ink-mid)', fontWeight:600}}>{cxpTotal}</span>
+                        </span>
+                      </div>
+                      <button onClick={() => removeOrderLine(line.id)}
+                        style={{ background:'none', border:'none', color:'var(--ink-light)', cursor:'pointer', fontSize:14, flexShrink:0, padding:'0 2px' }}
+                        title="Remove">✕</button>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                      <select value={line.mw} onChange={e => setLineMw(line.id, parseInt(e.target.value,10))}
+                        style={{ fontSize:11, fontFamily:"'Crimson Pro', serif", background:'var(--table-bg)', color:'var(--ink)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, padding:'1px 4px', cursor:'pointer' }}>
+                        <option value={0}>No Masterwork</option>
+                        <option value={12}>MW+12 CXP</option>
+                        <option value={24}>MW+24 CXP</option>
+                        <option value={36}>MW+36 CXP</option>
+                        <option value={48}>MW+48 CXP</option>
+                      </select>
+                      <div style={{ display:'flex', gap:0, borderRadius:4, overflow:'hidden', border:'1px solid rgba(255,255,255,0.15)', marginLeft:'auto' }}>
+                        <button style={toggleBtnStyle(line.sourced)} onClick={() => setLineSourced(line.id, true)}>Mats Req.</button>
+                        <button style={toggleBtnStyle(!line.sourced)} onClick={() => setLineSourced(line.id, false)}>Mats Prov.</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer — capped, scrollable */}
+            {orderLines.length > 0 && (
+              <div style={{ flexShrink:0, borderTop:'1px solid rgba(255,255,255,0.1)', padding:'10px 12px', display:'flex', flexDirection:'column', gap:8, background:'rgba(0,0,0,0.15)', maxHeight:'38%', overflowY:'auto' }}>
+
+                {/* Markup editor — T1/T2/T3 + MW */}
+                <div>
+                  <div style={sectionLabel}>CXP Markup Rate</div>
+                  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                    {tierMarkupDefs.map(({ key, cls, label }) => (
+                      <div key={key} className={`tier-badge ${cls}`}
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0, padding:'2px 3px', borderRadius:4, flex:1, minWidth:0 }}>
+                        <span style={{ fontWeight:700, fontSize:10, marginRight:2, whiteSpace:'nowrap' }}>{label}</span>
+                        <button onClick={() => setMarkups(prev => ({ ...prev, [key]: Math.max(0, parseFloat((prev[key] - 0.25).toFixed(2))) }))}
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
+                        <span style={{ fontSize:10, fontWeight:700, minWidth:22, textAlign:'center' }}>{markups[key].toFixed(2)}</span>
+                        <button onClick={() => setMarkups(prev => ({ ...prev, [key]: parseFloat((prev[key] + 0.25).toFixed(2)) }))}
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
+                      </div>
+                    ))}
+                    {/* MW Markup — pearl badge */}
+                    <div className="tier-badge tier-mw"
+                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0, padding:'2px 3px', borderRadius:4, flex:1, minWidth:0 }}>
+                      <span style={{ fontWeight:700, fontSize:10, marginRight:2, whiteSpace:'nowrap' }}>MW</span>
+                      <button onClick={() => setMwMarkup(prev => Math.max(0, parseFloat((prev - 0.25).toFixed(2))))}
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>-</button>
+                      <span style={{ fontSize:10, fontWeight:700, minWidth:22, textAlign:'center' }}>{mwMarkup.toFixed(2)}</span>
+                      <button onClick={() => setMwMarkup(prev => parseFloat((prev + 0.25).toFixed(2)))}
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'inherit', fontSize:12, padding:'0 1px', lineHeight:1, opacity:0.8 }}>+</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Totals */}
+                <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:6 }}>
+                  <div style={sectionLabel}>Totals</div>
+                  <div style={totalRowStyle}>
+                    <span>Total CXP</span>
+                    <span style={{fontWeight:600}}>{totalCxp} hrs</span>
+                  </div>
+                  {totalPer > 0 && (
+                    <div style={totalRowStyle}>
+                      <span>Material Cost (PER)</span>
+                      <span style={{color:'#6ee87a', fontWeight:600}}>{totalPer} coins</span>
+                    </div>
+                  )}
+                  {totalBaseCxpCost > 0 && (
+                    <div style={totalRowStyle}>
+                      <span>Craft CXP</span>
+                      <span style={{color:'#edbe00', fontWeight:600}}>{Math.ceil(totalBaseCxpCost)} coins</span>
+                    </div>
+                  )}
+                  {totalMwCost > 0 && (
+                    <div style={totalRowStyle}>
+                      <span>Masterwork CXP</span>
+                      <span style={{color:'#c8cdd4', fontWeight:600}}>{Math.ceil(totalMwCost)} coins</span>
+                    </div>
+                  )}
+                  <div style={{ ...totalRowStyle, ...bigTotal, borderTop:'1px solid rgba(255,255,255,0.1)', marginTop:4, paddingTop:4 }}>
+                    <span>Order Cost</span>
+                    <span>{Math.ceil(totalCharge)} coins</span>
+                  </div>
+                </div>
+
+                {/* Materials Needed — expandable primary list */}
+                {matList.length > 0 && (
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:6 }}>
+                    <div style={sectionLabel}>Materials Needed</div>
+                    <div style={{ fontSize:12, color:'var(--ink-light)' }}>
+                      {matList.map(([name, needed]) => {
+                        const entry = catLookup[name];
+                        const expandable = !!(entry && entry.materials);
+                        const isExpanded = expandedMats && expandedMats[name];
+                        const yv = entry ? (entry.yield_val || 1) : 1;
+                        const runs = expandable ? Math.ceil(needed / yv) : 0;
+                        const subMats = expandable ? parseMats(entry.materials) : [];
+                        return (
+                          <div key={name}>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'2px 0' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                                {expandable ? (
+                                  <button onClick={() => setExpandedMats(prev => ({...prev, [name]: !prev[name]}))}
+                                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-mid)', fontSize:9, padding:'0 2px', lineHeight:1 }}>
+                                    {isExpanded ? '▼' : '▶'}
+                                  </button>
+                                ) : <span style={{ display:'inline-block', width:14 }} />}
+                                <span>{name}</span>
+                              </div>
+                              <span style={{ color:'var(--ink-mid)', fontWeight:600, marginLeft:8 }}>×{needed}</span>
+                            </div>
+                            {isExpanded && (
+                              <div style={{ marginLeft:18, marginBottom:2, borderLeft:'1px solid rgba(255,255,255,0.1)', paddingLeft:6 }}>
+                                <div style={{ color:'var(--ink-light)', opacity:0.6, fontSize:11, fontStyle:'italic', paddingBottom:1 }}>
+                                  {runs} run{runs !== 1 ? 's' : ''} · yield ×{yv}
+                                </div>
+                                {subMats.map(sub => (
+                                  <div key={sub.name} style={{ display:'flex', justifyContent:'space-between', padding:'1px 0', opacity:0.8 }}>
+                                    <span>{sub.name}</span>
+                                    <span style={{ color:'var(--ink-mid)', fontWeight:600, marginLeft:8 }}>×{runs * sub.qty}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Components Required — collapsible resolved shopping list */}
+                {resolvedList.length > 0 && (
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:6 }}>
+                    <div style={{ ...sectionLabel, color:'#6ee87a', cursor:'pointer', display:'flex', alignItems:'center', gap:4, userSelect:'none' }}
+                      onClick={() => setExpandedMats(prev => ({...prev, __components__: !prev.__components__}))}>
+                      <span style={{ fontSize:9 }}>{expandedMats.__components__ ? '▼' : '▶'}</span>
+                      Components Required
+                    </div>
+                    {expandedMats.__components__ && (
+                      <div style={{ fontSize:12 }}>
+                        {resolvedList.map(([name, qty]) => (
+                          <div key={name} style={{ display:'flex', justifyContent:'space-between', padding:'2px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                            <span style={{ color:'var(--ink)' }}>{name}</span>
+                            <span style={{ color:'#6ee87a', fontWeight:700, marginLeft:8 }}>×{qty}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ display:'flex', gap:6, paddingTop:2 }}>
+                  <button onClick={() => navigator.clipboard.writeText(buildCopyText())}
+                    style={{ flex:1, fontSize:12, padding:'5px 0', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'var(--ink-mid)', cursor:'pointer', fontFamily:"'Crimson Pro', serif" }}>
+                    Copy Summary
+                  </button>
+                  <button onClick={clearOrder}
+                    style={{ fontSize:12, padding:'5px 10px', background:'rgba(200,50,50,0.15)', border:'1px solid rgba(200,50,50,0.3)', borderRadius:4, color:'#e07070', cursor:'pointer', fontFamily:"'Crimson Pro', serif" }}>
+                    Clear
+                  </button>
+                </div>
+
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
     </div>
   );
