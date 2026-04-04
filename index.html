@@ -640,7 +640,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.18')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.22')
       )
     ),
     // ── Table
@@ -798,12 +798,13 @@ function BuildPlanner() {
   const mwCxpOptions = [0, 12, 24, 36, 48];
   const onAddToOrder = (item) => {
     const id = ++orderIdCounter.current;
-    setOrderLines(prev => [...prev, { item, id, mw: 0, sourced: true }]);
+    setOrderLines(prev => [...prev, { item, id, mw: 0, sourced: true, qty: 1 }]);
     setOrderOpen(true);
   };
   const removeOrderLine = (id) => setOrderLines(prev => prev.filter(l => l.id !== id));
   const setLineMw = (id, mw) => setOrderLines(prev => prev.map(l => l.id === id ? {...l, mw} : l));
   const setLineSourced = (id, sourced) => setOrderLines(prev => prev.map(l => l.id === id ? {...l, sourced} : l));
+  const setLineQty = (id, qty) => setOrderLines(prev => prev.map(l => l.id === id ? {...l, qty} : l));
   const clearOrder = () => { setOrderLines([]); setExpandedMats({}); };
 
   // ── Catalogue data: cache-first, background refresh ──────────────────────
@@ -1685,7 +1686,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.18</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.22</div>
           </div>
         </div>
         )}
@@ -2345,18 +2346,18 @@ function BuildPlanner() {
 
         // Per-line cost helpers — base CXP uses tier markup, MW uses mwMarkup
         const getLineMarkup = (line) => markups[getTierKey(line.item.tier)] ?? 0.5;
-        const getLineBaseCxpCost = (line) => (parseFloat(line.item.cxp)||0) * getLineMarkup(line);
-        const getLineMwCost = (line) => line.mw * mwMarkup;
+        const getLineBaseCxpCost = (line) => (parseFloat(line.item.cxp)||0) * getLineMarkup(line) * (line.qty||1);
+        const getLineMwCost = (line) => line.mw * mwMarkup * (line.qty||1);
         const getLineCxpCost = (line) => getLineBaseCxpCost(line) + getLineMwCost(line);
-        const getLinePer = (line) => line.sourced ? (parseFloat(line.item.per)||0) : 0;
+        const getLineCost = (line) => line.sourced ? (parseFloat(line.item.cost)||0) * (line.qty||1) : 0;
 
         // Order totals — hours are flat, cost uses markups
-        const totalCxp = orderLines.reduce((sum, l) => sum + (parseFloat(l.item.cxp)||0) + l.mw, 0);
+        const totalCxp = orderLines.reduce((sum, l) => sum + ((parseFloat(l.item.cxp)||0) + l.mw) * (l.qty||1), 0);
         const totalBaseCxpCost = orderLines.reduce((sum, l) => sum + getLineBaseCxpCost(l), 0);
         const totalMwCost = orderLines.reduce((sum, l) => sum + getLineMwCost(l), 0);
         const totalCxpCost = totalBaseCxpCost + totalMwCost;
-        const totalPer = orderLines.reduce((sum, l) => sum + getLinePer(l), 0);
-        const totalCharge = totalPer + totalCxpCost;
+        const totalMatCost = orderLines.reduce((sum, l) => sum + getLineCost(l), 0);
+        const totalCharge = totalMatCost + totalCxpCost;
 
         // Catalogue lookup
         const catLookup = {};
@@ -2364,11 +2365,12 @@ function BuildPlanner() {
           if (item.name) catLookup[item.name] = { materials: item.materials || '', yield_val: parseFloat(item.yield_val) || 1 };
         });
 
-        // Aggregate primary materials from sourced lines
+        // Aggregate primary materials from sourced lines (scaled by qty)
         const matMap = {};
         orderLines.filter(l => l.sourced).forEach(line => {
+          const runs = line.qty || 1;
           parseMats(line.item.materials).forEach(({ qty, name }) => {
-            matMap[name] = (matMap[name] || 0) + qty;
+            matMap[name] = (matMap[name] || 0) + qty * runs;
           });
         });
         const matList = Object.entries(matMap).sort((a,b) => a[0].localeCompare(b[0]));
@@ -2392,10 +2394,12 @@ function BuildPlanner() {
         const buildCopyText = () => {
           const out = ['=== COMMISSION ORDER ===', ''];
           orderLines.forEach(l => {
+            const qty = l.qty || 1;
             const mwStr = l.mw > 0 ? ` [MW+${l.mw}]` : '';
-            const cxpTotal = (parseFloat(l.item.cxp)||0) + l.mw;
-            out.push(`${l.item.name} (${l.item.craft} ${l.item.tier||''})${mwStr} — ${l.sourced ? 'Mats Required' : 'Mats Provided'}`);
-            out.push(`  PER: ${l.item.per||'?'} coins | CXP: ${cxpTotal}`);
+            const qtyStr = qty > 1 ? ` ×${qty}` : '';
+            const cxpTotal = ((parseFloat(l.item.cxp)||0) + l.mw) * qty;
+            out.push(`${l.item.name} (${l.item.craft} ${l.item.tier||''})${mwStr}${qtyStr} — ${l.sourced ? 'Mats Required' : 'Mats Provided'}`);
+            out.push(`  Cost: ${l.sourced ? (parseFloat(l.item.cost)||0)*qty : 0} coins | CXP: ${cxpTotal}`);
           });
           out.push('');
           out.push(`Total CXP: ${totalCxp} hrs`);
@@ -2410,7 +2414,7 @@ function BuildPlanner() {
 
         const panelStyle = {
           position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 1500,
-          width: orderOpen ? 340 : 0,
+          width: orderOpen ? 380 : 0,
           overflow: 'hidden',
           transition: 'width 0.25s ease',
           display: 'flex', flexDirection: 'column',
@@ -2461,23 +2465,34 @@ function BuildPlanner() {
               )}
               {orderLines.map(line => {
                 const baseCxp = parseFloat(line.item.cxp)||0;
-                const cxpTotal = baseCxp + line.mw;
+                const qty = line.qty || 1;
                 return (
                   <div key={line.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '7px 0', display:'flex', flexDirection:'column', gap:5 }}>
+                    {/* Name + remove */}
                     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:6 }}>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', display:'block',
-                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
-                          title={line.item.name}>{line.item.name}</span>
-                        <span style={{ fontSize: 15, color: 'var(--ink-light)' }}>
-                          {line.item.craft} · {line.item.tier || '—'} · PER: <span style={{color:'#6ee87a', fontWeight:600}}>{line.item.per || '?'}</span> · CXP: <span style={{color:'var(--ink-mid)', fontWeight:600}}>{baseCxp}{line.mw > 0 ? <span style={{color:'#c8cdd4'}}> +{line.mw}</span> : ''}</span>
-                        </span>
-                      </div>
+                      <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', flex:1, minWidth:0,
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
+                        title={line.item.name}>{line.item.name}</span>
                       <button onClick={() => removeOrderLine(line.id)}
                         style={{ background:'none', border:'none', color:'var(--ink-light)', cursor:'pointer', fontSize:16, flexShrink:0, padding:'0 2px' }}
                         title="Remove">✕</button>
                     </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                    {/* Detail line + qty stepper aligned over toggle */}
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
+                      <span style={{ fontSize: 15, color: 'var(--ink-light)', flex:1, minWidth:0 }}>
+                        {line.item.craft} · {line.item.tier || '—'} · Cost: <span style={{color:'#ea4335', fontWeight:600}}>{line.item.cost || '?'}</span> · CXP: <span style={{color:'var(--ink-mid)', fontWeight:600}}>{baseCxp}{line.mw > 0 ? <span style={{color:'#c8cdd4'}}> +{line.mw}</span> : ''}</span>
+                      </span>
+                      {/* Stepper — fixed width matching toggle, centred over its midpoint */}
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:3, flexShrink:0, width:142 }}>
+                        <button onClick={() => setLineQty(line.id, Math.max(1, qty - 1))}
+                          style={{ background:'none', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, color:'var(--ink-mid)', cursor:'pointer', fontSize:12, padding:'1px 5px', lineHeight:1 }}>−</button>
+                        <span style={{ fontSize:14, fontWeight:600, color:'var(--ink)', minWidth:20, textAlign:'center' }}>{qty}</span>
+                        <button onClick={() => setLineQty(line.id, qty + 1)}
+                          style={{ background:'none', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, color:'var(--ink-mid)', cursor:'pointer', fontSize:12, padding:'1px 5px', lineHeight:1 }}>+</button>
+                      </div>
+                    </div>
+                    {/* MW dropdown + Mats toggle — same fixed width as stepper above */}
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <div style={{ position:'relative', display:'inline-block' }}>
                         <select value={line.mw} onChange={e => setLineMw(line.id, parseInt(e.target.value,10))}
                           className="commission-select"
@@ -2490,9 +2505,9 @@ function BuildPlanner() {
                         </select>
                         <span style={{ position:'absolute', right:4, top:'50%', transform:'translateY(-50%)', fontSize:12, color:'#a08060', pointerEvents:'none', lineHeight:1 }}>▾</span>
                       </div>
-                      <div style={{ display:'flex', gap:0, borderRadius:4, overflow:'hidden', border:'1px solid rgba(255,255,255,0.15)', marginLeft:'auto' }}>
-                        <button style={toggleBtnStyle(line.sourced)} onClick={() => setLineSourced(line.id, true)}>Mats Req.</button>
-                        <button style={toggleBtnStyle(!line.sourced)} onClick={() => setLineSourced(line.id, false)}>Mats Prov.</button>
+                      <div style={{ display:'flex', gap:0, borderRadius:4, overflow:'hidden', border:'1px solid rgba(255,255,255,0.15)', marginLeft:'auto', width:142, flexShrink:0 }}>
+                        <button style={{...toggleBtnStyle(line.sourced), flex:1, textAlign:'center'}} onClick={() => setLineSourced(line.id, true)}>Mats Req.</button>
+                        <button style={{...toggleBtnStyle(!line.sourced), flex:1, textAlign:'center'}} onClick={() => setLineSourced(line.id, false)}>Mats Prov.</button>
                       </div>
                     </div>
                   </div>
@@ -2564,10 +2579,10 @@ function BuildPlanner() {
                     <span>Total CXP</span>
                     <span style={{fontWeight:600}}>{totalCxp} hrs</span>
                   </div>
-                  {totalPer > 0 && (
+                  {totalMatCost > 0 && (
                     <div style={totalRowStyle}>
-                      <span>Material Cost (PER)</span>
-                      <span style={{color:'#6ee87a', fontWeight:600}}>{totalPer} coins</span>
+                      <span>Material Cost</span>
+                      <span style={{color:'#6ee87a', fontWeight:600}}>{totalMatCost} coins</span>
                     </div>
                   )}
                   {totalBaseCxpCost > 0 && (
