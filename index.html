@@ -640,7 +640,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.22')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.30')
       )
     ),
     // ── Table
@@ -1686,7 +1686,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.22</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.30</div>
           </div>
         </div>
         )}
@@ -2433,7 +2433,7 @@ function BuildPlanner() {
         const totalRowStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 15, padding: '2px 0', color: 'var(--ink)' };
         const bigTotal = { fontSize: 17, fontWeight: 700, color: 'var(--glow, #e8b86d)', padding: '4px 0' };
         const toggleBtnStyle = (active) => ({
-          fontSize:15, padding:'2px 7px', cursor:'pointer', border:'none',
+          fontSize:13, padding:'2px 7px', cursor:'pointer', border:'none',
           fontFamily:"'Crimson Pro', serif",
           background: active ? 'rgba(232,184,109,0.25)' : 'transparent',
           color: active ? 'var(--glow, #e8b86d)' : 'var(--ink-light)',
@@ -2477,26 +2477,25 @@ function BuildPlanner() {
                         style={{ background:'none', border:'none', color:'var(--ink-light)', cursor:'pointer', fontSize:16, flexShrink:0, padding:'0 2px' }}
                         title="Remove">✕</button>
                     </div>
-                    {/* Detail line + qty stepper aligned over toggle */}
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
-                      <span style={{ fontSize: 15, color: 'var(--ink-light)', flex:1, minWidth:0 }}>
+                    {/* Detail line + stepper inline */}
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'nowrap' }}>
+                      <span style={{ fontSize:14, color:'var(--ink-light)', flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {line.item.craft} · {line.item.tier || '—'} · Cost: <span style={{color:'#ea4335', fontWeight:600}}>{line.item.cost || '?'}</span> · CXP: <span style={{color:'var(--ink-mid)', fontWeight:600}}>{baseCxp}{line.mw > 0 ? <span style={{color:'#c8cdd4'}}> +{line.mw}</span> : ''}</span>
                       </span>
-                      {/* Stepper — fixed width matching toggle, centred over its midpoint */}
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:3, flexShrink:0, width:142 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:3, flexShrink:0, width:140 }}>
                         <button onClick={() => setLineQty(line.id, Math.max(1, qty - 1))}
-                          style={{ background:'none', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, color:'var(--ink-mid)', cursor:'pointer', fontSize:12, padding:'1px 5px', lineHeight:1 }}>−</button>
-                        <span style={{ fontSize:14, fontWeight:600, color:'var(--ink)', minWidth:20, textAlign:'center' }}>{qty}</span>
+                          style={{ background:'none', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, color:'var(--ink-mid)', cursor:'pointer', fontSize:14, padding:'1px 5px', lineHeight:1 }}>−</button>
+                        <span style={{ fontSize:16, fontWeight:600, color:'var(--ink)', minWidth:18, textAlign:'center' }}>{qty}</span>
                         <button onClick={() => setLineQty(line.id, qty + 1)}
-                          style={{ background:'none', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, color:'var(--ink-mid)', cursor:'pointer', fontSize:12, padding:'1px 5px', lineHeight:1 }}>+</button>
+                          style={{ background:'none', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, color:'var(--ink-mid)', cursor:'pointer', fontSize:14, padding:'1px 5px', lineHeight:1 }}>+</button>
                       </div>
                     </div>
-                    {/* MW dropdown + Mats toggle — same fixed width as stepper above */}
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ position:'relative', display:'inline-block' }}>
+                    {/* MW dropdown + Mats toggle */}
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'nowrap' }}>
+                      <div style={{ position:'relative', width:130, flexShrink:0 }}>
                         <select value={line.mw} onChange={e => setLineMw(line.id, parseInt(e.target.value,10))}
                           className="commission-select"
-                          style={{ fontSize:13, fontFamily:"'Crimson Pro', serif", background:'var(--table-bg)', color:'var(--ink)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, padding:'1px 20px 1px 4px', cursor:'pointer' }}>
+                          style={{ width:'100%', fontSize:13, fontFamily:"'Crimson Pro', serif", background:'var(--table-bg)', color:'var(--ink)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:3, padding:'1px 20px 1px 4px', cursor:'pointer' }}>
                           <option value={0}>No Masterwork</option>
                           <option value={12}>MW+12 CXP</option>
                           <option value={24}>MW+24 CXP</option>
@@ -2505,9 +2504,9 @@ function BuildPlanner() {
                         </select>
                         <span style={{ position:'absolute', right:4, top:'50%', transform:'translateY(-50%)', fontSize:12, color:'#a08060', pointerEvents:'none', lineHeight:1 }}>▾</span>
                       </div>
-                      <div style={{ display:'flex', gap:0, borderRadius:4, overflow:'hidden', border:'1px solid rgba(255,255,255,0.15)', marginLeft:'auto', width:142, flexShrink:0 }}>
-                        <button style={{...toggleBtnStyle(line.sourced), flex:1, textAlign:'center'}} onClick={() => setLineSourced(line.id, true)}>Mats Req.</button>
-                        <button style={{...toggleBtnStyle(!line.sourced), flex:1, textAlign:'center'}} onClick={() => setLineSourced(line.id, false)}>Mats Prov.</button>
+                      <div style={{ display:'flex', gap:0, borderRadius:4, overflow:'hidden', border:'1px solid rgba(255,255,255,0.15)', marginLeft:'auto', flexShrink:0, width:140 }}>
+                        <button style={toggleBtnStyle(line.sourced)} onClick={() => setLineSourced(line.id, true)}>Mats Req.</button>
+                        <button style={toggleBtnStyle(!line.sourced)} onClick={() => setLineSourced(line.id, false)}>Mats Prov.</button>
                       </div>
                     </div>
                   </div>
