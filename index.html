@@ -463,7 +463,17 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
         else if (skill === 'Deflection Rating') { if (!i.deflection) return false; }
         else if (!itemSkills.includes(skill)) return false;
       }
-      if (q && !(i.name||'').toLowerCase().includes(q) && !(i.description||'').toLowerCase().includes(q) && !(i.materials||'').toLowerCase().includes(q)) return false;
+      if (q) {
+        if (q.startsWith('item:')) {
+          const term = q.slice(5).trim();
+          if (term && !(i.name||'').toLowerCase().includes(term)) return false;
+        } else if (q.startsWith('mat:')) {
+          const term = q.slice(4).trim();
+          if (term && !(i.materials||'').toLowerCase().includes(term)) return false;
+        } else {
+          if (!(i.name||'').toLowerCase().includes(q) && !(i.materials||'').toLowerCase().includes(q)) return false;
+        }
+      }
       return true;
     });
   }, [data, debouncedSearch, craft, tier, category, skill]);
@@ -574,7 +584,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
         style:{ position:'absolute', top:8, right:8, background:'none', border:'none', cursor:'pointer', fontSize:15, color:C.inkMid, lineHeight:1 } }, '◀'),
       R('div', null,
         R('label', { style: S.label }, R('span', { style: S.labelIcon }, '⌕'), R('span', { style: S.labelText }, 'Search')),
-        R('input', { style: S.input, placeholder:'Name, description, ingredient…', value:search, onChange: e => setSearch(e.target.value) })
+        R('input', { style: S.input, placeholder:'Name, ingredient… or item: / mat:', value:search, onChange: e => setSearch(e.target.value) })
       ),
       R('div', null,
         R('label', { style: S.label }, R('span', { style: S.labelIcon }, '⚒'), R('span', { style: S.labelText }, 'Craft')),
@@ -640,7 +650,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
           dataStatus==='error'          ? '⚠ offline — no data' :
           '◌ loading…'
         ),
-        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.30')
+        R('div', { style:{ color: C.inkLight, marginTop:2 } }, 'v4.10.31')
       )
     ),
     // ── Table
@@ -1686,7 +1696,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.30</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v4.10.31</div>
           </div>
         </div>
         )}
