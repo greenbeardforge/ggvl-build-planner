@@ -33,6 +33,8 @@
       --card-bg:       #18140c;
       --input-bg:      #352e10;
       --input-txt:     #d8c890;
+      --select-bg:     #18140c;   /* darker than --input-bg — selects only; may unify later */
+      --select-hl:     #34A853;   /* selected option highlight — matches green accent app-wide */
       --sel-row-bg:    #3a3018;
       --sel-row-bdr:   #8a6a20;
       --red-danger:    #7f1d1d;
@@ -95,7 +97,9 @@
     .tier-badge{display:inline-block;border-radius:3px;padding:1px 7px;font-size:11px;font-weight:700;font-family:'Crimson Pro',serif;letter-spacing:.04em;}
 
     /* ── Select dropdowns ───────────── */
-    select:not(.commission-select) { appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7a50'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; padding-right:24px; }
+    select:not(.commission-select) { appearance:none; -webkit-appearance:none; background-color:var(--select-bg); color:var(--input-txt); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7a50'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; padding-right:24px; }
+    select:not(.commission-select) option:checked,
+    select:not(.commission-select) option:hover { background-color:var(--select-hl); color:#0d1a0d; }
 
     /* ── Commission Order selects ───────── */
     .commission-select { appearance:none; -webkit-appearance:none; }
@@ -1287,9 +1291,9 @@ const S = {
 };
 
 // ── Shared Sub-Components ─────────────────────────────────────────────────────
-const SectionCard = ({ title, color, accent, icon, children }) => (
+const SectionCard = ({ title, color, accent, icon, gradient, children }) => (
   <div style={S.summCard}>
-    <div style={S.summHead(color, accent)}>{icon && <span>{icon}</span>}{title}</div>
+    <div style={{ ...S.summHead(color||'#333', accent), ...(gradient ? { background: gradient } : {}) }}>{icon && <span>{icon}</span>}{title}</div>
     <div style={S.summBody}>{children}</div>
   </div>
 );
@@ -1315,8 +1319,8 @@ const SkillRow = ({ skill, entries }) => {
       </div>
       {entries.map((e, i) => (
         <div key={i} style={{ ...S.row, paddingLeft: 10 }}>
-          <span style={e.mw ? {fontWeight:700,color:'#FBBF24'} : (e.sign > 0 ? S.diceGood : S.diceBad)}>{e.sign > 0 ? '+' : '-'}{e.dice}{e.mw ? '' : 'd4'}</span>
-          <span style={e.mw ? {fontSize:11,color:'#FBBF24',fontStyle:'italic'} : S.itemTag}>{e.mw ? '⭐ Masterwork' : e.item}</span>
+          <span style={e.mw ? {fontWeight:700,background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'} : (e.sign > 0 ? S.diceGood : S.diceBad)}>{e.sign > 0 ? '+' : '-'}{e.dice}{e.mw ? '' : 'd4'}</span>
+          <span style={e.mw ? {fontSize:11,fontStyle:'italic',background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'} : S.itemTag}>{e.mw ? '★ Masterwork' : e.item}</span>
         </div>
       ))}
     </div>
@@ -1339,253 +1343,511 @@ function getPositiveRatings(item) {
   return results;
 }
 
-const MW_GRAD = 'linear-gradient(90deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%)';
+// ── Masterwork iridescent gradient constants ─────────────────────────────────
+// ALL masterwork references app-wide use these two constants.
+// Do NOT introduce new MW colour values anywhere in this file.
+// MW_GRAD      — 90deg (horizontal shine) — used for pill/badge backgrounds
+// MW_TEXT_GRAD — 135deg (angled shine)    — used for text, headers, entry rows
+const MW_GRAD      = 'linear-gradient(90deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%)';
+const MW_TEXT_GRAD = 'linear-gradient(135deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%)';
 
-function GearSlotCard({ side, slot, data, updateSlot, catalogueData, MW_OPTIONS, MW_SKILLS, MW_RATINGS }) {
-  const isLeft = side === 'left';
-  const hdrGrad = isLeft ? 'linear-gradient(135deg,#1a3a25 0%,#2a5a35 100%)' : 'linear-gradient(135deg,#2a1a4a 0%,#3a2a6a 100%)';
-  const [query,      setQuery]      = React.useState('');
-  const [results,    setResults]    = React.useState([]);
-  const [addingMw,   setAddingMw]   = React.useState(false);
-  const [mwProp,     setMwProp]     = React.useState(MW_OPTIONS[0] || '');
-  const [mwVal,      setMwVal]      = React.useState(1);
-  const [addingKit,  setAddingKit]  = React.useState(false);
-  const [kitChoice,  setKitChoice]  = React.useState('');
+// ── Gear Comparison ───────────────────────────────────────────────────────────
+// GearItemCard: one item in either column. Props:
+//   item        — GCItem {id,itemName,itemRatings,steppers,mwEntries,kitEntries}
+//   side        — 'left'|'right'
+//   onUpdate(patch) — partial update to this item
+//   onRemove()
+//   onDragStart(e), onDragOver(e), onDrop(e)
+//   catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS
+function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver, onDrop, catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS }) {
+  const [addingMw,     setAddingMw]     = React.useState(false);
+  const [mwProp,       setMwProp]       = React.useState(MW_OPTIONS[0] || '');
+  const [mwVal,        setMwVal]        = React.useState(1);
+  const [addingKit,    setAddingKit]    = React.useState(false);
+  const [kitQuery,     setKitQuery]     = React.useState('');
+  const [kitResults,   setKitResults]   = React.useState([]);
+  const [kitChoice,    setKitChoice]    = React.useState('');
+  const rangeMode = item.rangeMode ?? (side === 'right');
+  const setRangeMode = v => onUpdate({ rangeMode: typeof v === 'function' ? v(rangeMode) : v });
 
   const upgradeKits = React.useMemo(() =>
     catalogueData.filter(i => i.category === '[Upgrade Kit]'),
   [catalogueData]);
 
-  const search = v => {
-    setQuery(v);
-    if (v.length < 2) { setResults([]); return; }
-    const q = v.toLowerCase();
-    setResults(catalogueData.filter(i => i.name.toLowerCase().includes(q)).slice(0, 8));
-  };
-
-  const selectItem = item => {
-    const ratings = getPositiveRatings(item);
-    const steppers = {};
-    ratings.forEach(r => { steppers[r.label] = r.dice; });
-    updateSlot(side, slot, { itemName: item.name, itemRatings: ratings, steppers, mwEntries: data.mwEntries, kitEntries: data.kitEntries });
-    setQuery('');
-    setResults([]);
-  };
-
-  const stepperVal = label => data.steppers[label] ?? (data.itemRatings.find(r => r.label === label)?.dice ?? 1);
+  const stepperVal = label => item.steppers[label] ?? (item.itemRatings.find(r => r.label === label)?.dice ?? 1);
   const setStepperVal = (label, v) => {
-    const rating = data.itemRatings.find(r => r.label === label);
+    const rating = item.itemRatings.find(r => r.label === label);
     const min = rating ? rating.dice : 1;
     const max = rating ? rating.dice * 4 : 20;
-    const clamped = Math.max(min, Math.min(max, v));
-    updateSlot(side, slot, { steppers: { ...data.steppers, [label]: clamped } });
+    onUpdate({ steppers: { ...item.steppers, [label]: Math.max(min, Math.min(max, v)) } });
   };
 
   const confirmMw = () => {
     if (!mwProp) return;
-    updateSlot(side, slot, { mwEntries: [...data.mwEntries, { prop: mwProp, val: mwVal }] });
+    onUpdate({ mwEntries: [...item.mwEntries, { prop: mwProp, val: mwVal }] });
     setAddingMw(false); setMwVal(1);
   };
-  const removeMw = idx => updateSlot(side, slot, { mwEntries: data.mwEntries.filter((_,i) => i !== idx) });
+  const removeMw = idx => onUpdate({ mwEntries: item.mwEntries.filter((_,i) => i !== idx) });
 
+  const searchKits = v => {
+    setKitQuery(v);
+    if (v.length < 2) { setKitResults([]); setKitChoice(''); return; }
+    const q = v.toLowerCase();
+    const found = upgradeKits.filter(k => k.name.toLowerCase().includes(q)).slice(0, 8);
+    setKitResults(found);
+    setKitChoice(found.length > 0 ? found[0].name : '');
+  };
   const confirmKit = () => {
-    if (!kitChoice) return;
-    const kit = upgradeKits.find(k => k.name === kitChoice);
+    const name = kitChoice || (kitResults.length > 0 ? kitResults[0].name : '');
+    if (!name) return;
+    const kit = upgradeKits.find(k => k.name === name);
     if (!kit) return;
     const ratings = getPositiveRatings(kit);
-    const kitSteppers = {};
-    ratings.forEach(r => { kitSteppers[r.label] = r.dice; });
-    updateSlot(side, slot, { kitEntries: [...data.kitEntries, { kitName: kitChoice, ratings, steppers: kitSteppers }] });
-    setAddingKit(false); setKitChoice('');
+    const steppers = {};
+    ratings.forEach(r => { steppers[r.label] = r.dice; });
+    onUpdate({ kitEntries: [...item.kitEntries, { kitName: kitChoice, ratings, steppers }] });
+    setAddingKit(false); setKitQuery(''); setKitResults([]); setKitChoice('');
   };
-  const removeKit = idx => updateSlot(side, slot, { kitEntries: data.kitEntries.filter((_,i) => i !== idx) });
-  const setKitStepper = (kitIdx, label, v) => {
-    const kit = data.kitEntries[kitIdx];
+  const removeKit = idx => onUpdate({ kitEntries: item.kitEntries.filter((_,i) => i !== idx) });
+  const setKitStepper = (kidx, label, v) => {
+    const kit = item.kitEntries[kidx];
     const rating = kit.ratings.find(r => r.label === label);
     const min = rating ? rating.dice : 1;
     const max = rating ? rating.dice * 4 : 20;
-    const clamped = Math.max(min, Math.min(max, v));
-    const updated = data.kitEntries.map((k,i) => i === kitIdx ? { ...k, steppers: { ...k.steppers, [label]: clamped } } : k);
-    updateSlot(side, slot, { kitEntries: updated });
+    const updated = item.kitEntries.map((k,i) => i === kidx ? { ...k, steppers: { ...k.steppers, [label]: Math.max(min, Math.min(max, v)) } } : k);
+    onUpdate({ kitEntries: updated });
   };
 
-  const promoteToLeft = () => {
-    /* no-op — handled at parent level via updateSlot on left side */
+  const stepBtn = (onClick, lbl, variant) => {
+    const isMw = variant === 'mw';
+    return (
+      <button onClick={onClick} style={{ background:'none', border:`1px solid ${isMw ? '#8aacc0' : C.parchDark}`, borderRadius:3,
+        width:18, height:18, cursor:'pointer', fontSize:13, lineHeight:1,
+        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+        ...(isMw
+          ? { background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }
+          : { color:'#27AE60', fontWeight:700 })
+      }}>{lbl}</button>
+    );
   };
 
-  const stepBtn = (onClick, lbl) => (
-    <button onClick={onClick} style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-      width:20, height:20, cursor:'pointer', color:C.inkMid, fontSize:14, lineHeight:1,
-      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-      {lbl}
-    </button>
+  const mwConfirmBtn = (onClick) => (
+    <button onClick={onClick} style={{ background:'none', border:'1px solid #8aacc0', borderRadius:3,
+      padding:'1px 6px', cursor:'pointer', fontSize:12, flexShrink:0,
+      background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }}>✓</button>
+  );
+  const cancelBtn = (onClick, isMw) => (
+    <button onClick={onClick} style={{ background:'none', border:'none', cursor:'pointer', fontSize:14, flexShrink:0,
+      ...(isMw
+        ? { background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }
+        : { color:C.inkMid }) }}>×</button>
   );
 
   return (
-    <div style={{ border:`1px solid ${C.parchDark}`, borderRadius:5, overflow:'hidden', marginBottom:4 }}>
-      {/* Slot header */}
-      <div style={{ background: hdrGrad, padding:'5px 10px',
-        fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
-        color: isLeft ? '#a8d4b0' : '#b8a8d8', letterSpacing:'.06em', textTransform:'uppercase' }}>
-        {slot}
+    <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}
+      style={{ border:`1px solid ${C.parchDark}`, borderRadius:4, marginBottom:4,
+        background:C.parchMid, cursor:'grab' }}>
+
+      {/* Item name row */}
+      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 6px',
+        borderBottom:`1px solid ${C.parchDark}` }}>
+        <span style={{ fontSize:11, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
+        <span style={{ flex:1, fontSize:12, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
+          letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {item.itemName || '—'}
+        </span>
+        <button onClick={() => setRangeMode(m => !m)}
+          style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+            padding:'1px 5px', cursor:'pointer', fontSize:10, flexShrink:0,
+            color: rangeMode ? '#27AE60' : C.inkMid, fontFamily:"'Crimson Pro',serif",
+            fontWeight: rangeMode ? 700 : 400 }}>
+          {rangeMode ? 'Range' : 'Rolled'}
+        </button>
+        <button onClick={() => { if (!addingMw && item.mwEntries.length < 1) setAddingMw(true); }}
+          style={{ background:'none', border:`1px solid ${(addingMw || item.mwEntries.length >= 1) ? C.parchDark : '#8aacc0'}`,
+          borderRadius:3, padding:'1px 5px', fontSize:10, flexShrink:0, fontWeight:700,
+          cursor: (addingMw || item.mwEntries.length >= 1) ? 'default' : 'pointer',
+          opacity: (addingMw || item.mwEntries.length >= 1) ? 0.35 : 1,
+          background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>+MW</button>
+        <button onClick={() => setAddingKit(true)} style={{ background:'none', border:`1px solid ${C.parchDark}`,
+          borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, color:C.inkMid, flexShrink:0,
+          fontFamily:"'Crimson Pro',serif", display: addingKit ? 'none' : 'flex' }}>+Kit</button>
+        <button onClick={onRemove} style={{ background:'none', border:'none', cursor:'pointer',
+          color:C.inkLight, fontSize:13, lineHeight:1, flexShrink:0, padding:'0 2px' }}>×</button>
       </div>
 
-      {/* Body */}
-      <div style={{ padding:'8px 10px', display:'flex', flexDirection:'column', gap:6, background:C.parchMid }}>
+      {/* Ratings rows */}
+      <div style={{ padding:'3px 6px 4px' }}>
+        {item.itemRatings.map(r => (
+          <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
+            <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
+            {rangeMode ? (
+              <span style={{ color:'#27AE60', fontWeight:700, fontSize:12 }}>
+                +{r.dice}–+{r.dice * 4}
+              </span>
+            ) : (
+              <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
+                <span style={{ color:'#27AE60', fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
+                  +{stepperVal(r.label)}
+                </span>
+                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
+              </div>
+            )}
+          </div>
+        ))}
 
-        {/* Item search */}
-        <div style={{ position:'relative' }}>
-          <input value={query} onChange={e => search(e.target.value)}
-            placeholder={data.itemName || 'Search item…'}
-            style={{ ...S.input, fontSize:13, width:'100%' }} />
-          {results.length > 0 && (
-            <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:50,
-              border:`1px solid ${C.parchDark}`, background:C.parchMid, borderRadius:'0 0 4px 4px',
-              maxHeight:160, overflowY:'auto' }}>
-              {results.map(item => (
-                <div key={item.name} onClick={() => selectItem(item)}
-                  style={{ padding:'4px 8px', cursor:'pointer', fontSize:13, color:C.ink,
-                    borderBottom:`1px solid ${C.parchDark}` }}
-                  onMouseEnter={e => e.currentTarget.style.background = C.parchDark}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  {item.name}
-                </div>
-              ))}
+        {/* MW entries */}
+        {item.mwEntries.map((e, idx) => (
+          <div key={idx} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
+            <span style={{ flex:1, fontWeight:700,
+              background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+              ★ {e.prop} +{e.val}
+            </span>
+            {cancelBtn(() => removeMw(idx), true)}
+          </div>
+        ))}
+
+        {/* MW add row */}
+        {addingMw && (
+          <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:3 }}>
+            <select value={mwProp} onChange={e => setMwProp(e.target.value)}
+              style={{ flex:1, minWidth:0, fontSize:11, padding:'2px 4px', borderRadius:3,
+                border:`1px solid ${C.parchDark}`, fontFamily:"'Crimson Pro',serif" }}>
+              <optgroup label="Skills">
+                {MW_SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
+              </optgroup>
+              <optgroup label="Ratings">
+                {MW_RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
+              </optgroup>
+            </select>
+            <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+              {stepBtn(() => setMwVal(v => Math.max(1, v - 1)), '−', 'mw')}
+              <span style={{ minWidth:18, textAlign:'center', fontSize:12,
+                background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
+                fontWeight:700 }}>{mwVal}</span>
+              {stepBtn(() => setMwVal(v => Math.min(20, v + 1)), '+', 'mw')}
             </div>
-          )}
-        </div>
+            {mwConfirmBtn(confirmMw)}
+            {cancelBtn(() => { setAddingMw(false); setMwVal(1); }, true)}
+          </div>
+        )}
 
-        {/* Skill ratings */}
-        {data.itemRatings.length > 0 && (
-          <div style={{ display:'flex', flexDirection:'column', gap:3, borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
-            {data.itemRatings.map(r => (
-              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:13 }}>
+        {/* Kit entries */}
+        {item.kitEntries.map((ke, kidx) => (
+          <div key={kidx} style={{ marginTop:2 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
+              <span style={{ flex:1, color:C.inkMid, fontStyle:'italic' }}>{ke.kitName}</span>
+              {cancelBtn(() => removeKit(kidx), false)}
+            </div>
+            {ke.ratings.map(r => (
+              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11,
+                paddingLeft:8, minHeight:18 }}>
                 <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
-                {isLeft ? (
-                  <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
-                    <span style={{ color:'#27AE60', fontWeight:700, minWidth:22, textAlign:'center' }}>
-                      +{stepperVal(r.label)}
-                    </span>
-                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
-                  </div>
-                ) : (
-                  <span style={{ color:'#27AE60', fontWeight:700 }}>
-                    +{r.dice * 4} <span style={{ color:C.inkMid, fontWeight:400, fontSize:11 }}>(+{r.dice}d4)</span>
+                <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                  {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) - 1), '−')}
+                  <span style={{ color:'#27AE60', fontWeight:700, minWidth:20, textAlign:'center', fontSize:11 }}>
+                    +{ke.steppers[r.label] ?? r.dice}
                   </span>
-                )}
+                  {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) + 1), '+')}
+                </div>
               </div>
             ))}
           </div>
-        )}
+        ))}
 
-        {/* MW section */}
-        <div style={{ borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
-          {data.mwEntries.map((e, idx) => (
-            <div key={idx} style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
-              <span style={{ flex:1, fontSize:12, fontWeight:700,
-                background: MW_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-                {e.prop} +{e.val}
-              </span>
-              <button onClick={() => removeMw(idx)} style={{ background:'none', border:'none', cursor:'pointer',
-                color:C.inkMid, fontSize:14, lineHeight:1, padding:'0 2px' }}>×</button>
+        {/* Kit add row */}
+        {addingKit && (
+          <div style={{ display:'flex', flexDirection:'column', gap:3, marginTop:3 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+              <input value={kitQuery} onChange={e => searchKits(e.target.value)}
+                placeholder="Search kit…"
+                style={{ flex:1, minWidth:0, fontSize:11, padding:'2px 6px', borderRadius:3,
+                  border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
+                  fontFamily:"'Crimson Pro',serif" }} />
+              {mwConfirmBtn(confirmKit)}
+              {cancelBtn(() => { setAddingKit(false); setKitQuery(''); setKitResults([]); setKitChoice(''); }, false)}
             </div>
-          ))}
-          {addingMw ? (
-            <div style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
-              <select value={mwProp} onChange={e => setMwProp(e.target.value)}
-                style={{ ...S.input, fontSize:12, flex:1, minWidth:0, color:'#c8cdd4' }}>
-                <optgroup label="Skills">
-                  {MW_SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
-                </optgroup>
-                <optgroup label="Ratings">
-                  {MW_RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
-                </optgroup>
+            {kitResults.length > 0 && (
+              <select size={Math.min(kitResults.length, 5)} value={kitChoice}
+                onChange={e => setKitChoice(e.target.value)}
+                style={{ width:'100%', fontSize:11, padding:'2px 4px', borderRadius:3,
+                  border:`1px solid ${C.parchDark}`, fontFamily:"'Crimson Pro',serif",
+                  background:'var(--select-bg)', color:C.ink, outline:'none' }}>
+                {kitResults.map(k => <option key={k.name} value={k.name}>{k.name}</option>)}
               </select>
-              <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-                {stepBtn(() => setMwVal(v => Math.max(1, v - 1)), '−')}
-                <span style={{ minWidth:22, textAlign:'center', fontSize:13,
-                  background: MW_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
-                  fontWeight:700 }}>+{mwVal}</span>
-                {stepBtn(() => setMwVal(v => Math.min(20, v + 1)), '+')}
-              </div>
-              <button onClick={confirmMw} style={{ background:'none', border:`1px solid ${C.parchDark}`,
-                borderRadius:3, padding:'2px 7px', cursor:'pointer', color:'#27AE60', fontSize:13 }}>✓</button>
-              <button onClick={() => setAddingMw(false)} style={{ background:'none', border:'none',
-                cursor:'pointer', color:C.inkMid, fontSize:16 }}>×</button>
-            </div>
-          ) : data.mwEntries.length === 0 && (
-            <button onClick={() => setAddingMw(true)}
-              style={{ background:'none', border:`1px solid #8aacc0`, borderRadius:3,
-                padding:'2px 8px', cursor:'pointer', fontSize:12,
-                fontFamily:"'Crimson Pro',serif",
-                background: MW_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-              ＋ Masterwork
-            </button>
-          )}
-        </div>
-
-        {/* Kit section */}
-        <div style={{ borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
-          {data.kitEntries.map((ke, kidx) => (
-            <div key={kidx} style={{ marginBottom:5 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:3 }}>
-                <span style={{ flex:1, fontSize:12, fontWeight:700, color:C.inkMid }}>{ke.kitName}</span>
-                <button onClick={() => removeKit(kidx)} style={{ background:'none', border:'none',
-                  cursor:'pointer', color:C.inkMid, fontSize:14, lineHeight:1, padding:'0 2px' }}>×</button>
-              </div>
-              {ke.ratings.map(r => (
-                <div key={r.label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, paddingLeft:8, marginBottom:2 }}>
-                  <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
-                  <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-                    {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) - 1), '−')}
-                    <span style={{ color:'#27AE60', fontWeight:700, minWidth:22, textAlign:'center' }}>
-                      +{ke.steppers[r.label] ?? r.dice}
-                    </span>
-                    {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) + 1), '+')}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-          {addingKit ? (
-            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-              <select value={kitChoice} onChange={e => setKitChoice(e.target.value)}
-                style={{ ...S.input, fontSize:12, flex:1, minWidth:0 }}>
-                <option value=''>Select kit…</option>
-                {upgradeKits.map(k => <option key={k.name} value={k.name}>{k.name}</option>)}
-              </select>
-              <button onClick={confirmKit} style={{ background:'none', border:`1px solid ${C.parchDark}`,
-                borderRadius:3, padding:'2px 7px', cursor:'pointer', color:'#27AE60', fontSize:13 }}>✓</button>
-              <button onClick={() => setAddingKit(false)} style={{ background:'none', border:'none',
-                cursor:'pointer', color:C.inkMid, fontSize:16 }}>×</button>
-            </div>
-          ) : (
-            <button onClick={() => setAddingKit(true)}
-              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                padding:'2px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
-                fontFamily:"'Crimson Pro',serif", marginTop:2 }}>
-              ＋ Upgrade Kit
-            </button>
-          )}
-        </div>
-
-        {/* Promote button (right column only) */}
-        {!isLeft && data.itemName && (
-          <div style={{ borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
-            <button onClick={() => promoteToLeft()}
-              style={{ background:'none', border:`1px solid #4a4a7a`, borderRadius:3,
-                padding:'2px 8px', cursor:'pointer', fontSize:12, color:'#9090c0',
-                fontFamily:"'Crimson Pro',serif", width:'100%' }}>
-              ← Promote to Current
-            </button>
+            )}
           </div>
         )}
 
+        {/* Empty state */}
+        {item.itemRatings.length === 0 && item.mwEntries.length === 0 && item.kitEntries.length === 0 && (
+          <div style={{ color:C.inkLight, fontSize:11, fontStyle:'italic', padding:'2px 0' }}>No ratings</div>
+        )}
       </div>
     </div>
   );
 }
+
+// ── GearComparison component ──────────────────────────────────────────────────
+// Props: gcItems, updateGcItems, catalogueData, buildItems,
+//        MW_OPTIONS, MW_SKILLS, MW_RATINGS
+function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_OPTIONS, MW_SKILLS, MW_RATINGS }) {
+  const [addQuery,   setAddQuery]   = React.useState('');
+  const [addResults, setAddResults] = React.useState([]);
+  const [addChoice,  setAddChoice]  = React.useState('');
+  const [dragSrc,    setDragSrc]    = React.useState(null); // {side, idx}
+
+  const searchAdd = v => {
+    setAddQuery(v);
+    setAddChoice('');
+    if (v.length < 2) { setAddResults([]); return; }
+    const q = v.toLowerCase();
+    setAddResults(catalogueData.filter(i => i.name.toLowerCase().includes(q)).slice(0, 8));
+  };
+
+  const makeItem = (catalogueItem, rangeMode=false) => {
+    const ratings = getPositiveRatings(catalogueItem);
+    const steppers = {};
+    ratings.forEach(r => { steppers[r.label] = r.dice; });
+    return { id: String(Date.now() + Math.random()), itemName: catalogueItem.name,
+      itemRatings: ratings, steppers, mwEntries: [], kitEntries: [], rangeMode };
+  };
+
+  const addToRight = () => {
+    if (!addChoice) return;
+    const cat = catalogueData.find(i => i.name === addChoice);
+    if (!cat) return;
+    updateGcItems({ right: [...gcItems.right, makeItem(cat, true)] });
+    setAddQuery(''); setAddResults([]); setAddChoice('');
+  };
+
+  const syncFromBuild = () => {
+    const leftItems = buildItems.map(name => {
+      const cat = catalogueData.find(i => i.name === name);
+      if (!cat) return { id: String(Date.now() + Math.random()), itemName: name,
+        itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [] };
+      return makeItem(cat);
+    });
+    updateGcItems({ left: leftItems });
+  };
+
+  const updateItem = (side, idx, patch) => {
+    const updated = gcItems[side].map((item, i) =>
+      i === idx ? { ...item, ...patch } : item
+    );
+    updateGcItems({ [side]: updated });
+  };
+
+  const removeItem = (side, idx) => {
+    updateGcItems({ [side]: gcItems[side].filter((_,i) => i !== idx) });
+  };
+
+  const onDragStart = (side, idx) => e => {
+    setDragSrc({ side, idx });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDragOver = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+
+  const onDrop = (targetSide, targetIdx) => e => {
+    e.preventDefault();
+    if (!dragSrc) return;
+    const { side: srcSide, idx: srcIdx } = dragSrc;
+    const item = gcItems[srcSide][srcIdx];
+    if (srcSide === targetSide) {
+      // reorder within column
+      const col = [...gcItems[srcSide]];
+      col.splice(srcIdx, 1);
+      col.splice(targetIdx, 0, item);
+      updateGcItems({ [srcSide]: col });
+    } else {
+      // cross-column move
+      const srcCol = gcItems[srcSide].filter((_,i) => i !== srcIdx);
+      const tgtCol = [...gcItems[targetSide]];
+      tgtCol.splice(targetIdx, 0, item);
+      updateGcItems({ [srcSide]: srcCol, [targetSide]: tgtCol });
+    }
+    setDragSrc(null);
+  };
+
+  const onDropColumn = (targetSide) => e => {
+    e.preventDefault();
+    if (!dragSrc) return;
+    const { side: srcSide, idx: srcIdx } = dragSrc;
+    if (srcSide === targetSide) { setDragSrc(null); return; }
+    const item = gcItems[srcSide][srcIdx];
+    updateGcItems({
+      [srcSide]: gcItems[srcSide].filter((_,i) => i !== srcIdx),
+      [targetSide]: [...gcItems[targetSide], item]
+    });
+    setDragSrc(null);
+  };
+
+  const colHdr = (label, grad, color) => (
+    <div style={{ background:grad, padding:'5px 10px', fontFamily:"'Cinzel',serif",
+      fontSize:11, fontWeight:700, color, letterSpacing:'.06em', textTransform:'uppercase',
+      display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <span>{label}</span>
+    </div>
+  );
+
+  const cardProps = (side, idx) => ({
+    side,
+    onUpdate: patch => updateItem(side, idx, patch),
+    onRemove: () => removeItem(side, idx),
+    onDragStart: onDragStart(side, idx),
+    onDragOver,
+    onDrop: onDrop(side, idx),
+    catalogueData, MW_OPTIONS, MW_SKILLS, MW_RATINGS
+  });
+
+  const rowCount = Math.max(gcItems.left.length, gcItems.right.length);
+
+  // Delta: per-skill diff between left[i] rolled value and right[i] range
+  const getDelta = (leftItem, rightItem) => {
+    if (!leftItem || !rightItem) return [];
+    const allLabels = [...new Set([
+      ...leftItem.itemRatings.map(r => r.label),
+      ...leftItem.mwEntries.map(e => e.prop),
+      ...rightItem.itemRatings.map(r => r.label),
+      ...rightItem.mwEntries.map(e => e.prop),
+    ])];
+    return allLabels.map(label => {
+      const lr = leftItem.itemRatings.find(r => r.label === label);
+      const lmw = leftItem.mwEntries.find(e => e.prop === label);
+      const rr = rightItem.itemRatings.find(r => r.label === label);
+      const rmw = rightItem.mwEntries.find(e => e.prop === label);
+      const leftVal = (lr ? (leftItem.steppers[label] ?? lr.dice) : 0) + (lmw ? lmw.val : 0);
+      const rightRolled = rightItem.rangeMode === false;
+      const rightMin = (rr ? (rightRolled ? (rightItem.steppers[label] ?? rr.dice) : rr.dice) : 0) + (rmw ? rmw.val : 0);
+      const rightMax = (rr ? (rightRolled ? (rightItem.steppers[label] ?? rr.dice) : rr.dice * 4) : 0) + (rmw ? rmw.val : 0);
+      const deltaMin = rightMin - leftVal;
+      const deltaMax = rightMax - leftVal;
+      return { label, deltaMin, deltaMax };
+    }).filter(d => d.deltaMin !== 0 || d.deltaMax !== 0);
+  };
+
+  return (
+    <div style={{ marginTop:12 }}>
+      {/* Section header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'7px 14px', borderRadius:'5px 5px 0 0',
+        background:'linear-gradient(135deg,#1a2a4a 0%,#2a3a6a 100%)' }}>
+        <span style={{ fontFamily:"'Cinzel',serif", fontSize:14, fontWeight:700,
+          color:'#b8c8e8', letterSpacing:'.05em' }}>⚔ Gear Comparison</span>
+      </div>
+
+      <div style={{ background:'var(--card-bg)', border:`1px solid ${C.parchDark}`,
+        borderTop:'none', borderRadius:'0 0 5px 5px', padding:'8px' }}>
+
+        {/* Column headers */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:6 }}>
+          {colHdr('Current Gear', 'linear-gradient(135deg,#1a3a25 0%,#2a5a35 100%)', '#a8d4b0')}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center',
+            fontFamily:"'Cinzel',serif", fontSize:10, fontWeight:700, color:C.inkLight,
+            letterSpacing:'.05em', textTransform:'uppercase' }}>Delta</div>
+          {colHdr('Comparison', 'linear-gradient(135deg,#2a1a4a 0%,#3a2a6a 100%)', '#b8a8d8')}
+        </div>
+
+        {/* Sync button + add row */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:6 }}>
+          <button onClick={syncFromBuild}
+            style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+              padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+              fontFamily:"'Crimson Pro',serif" }}>↺ Sync from Build</button>
+          <div />
+          {/* Add item row */}
+          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+              <input value={addQuery} onChange={e => searchAdd(e.target.value)}
+                placeholder="Search item…"
+                style={{ flex:1, minWidth:0, fontSize:13, padding:'3px 6px', borderRadius:3,
+                  border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
+                  fontFamily:"'Crimson Pro',serif" }} />
+              <button onClick={addToRight}
+                style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                  padding:'2px 7px', cursor:'pointer', fontSize:14, color: addChoice ? '#27AE60' : C.inkLight,
+                  fontWeight:700, flexShrink:0 }}>✓</button>
+              <button onClick={() => { setAddQuery(''); setAddResults([]); setAddChoice(''); }}
+                style={{ background:'none', border:'none', cursor:'pointer',
+                  color:C.inkMid, fontSize:15, flexShrink:0 }}>×</button>
+            </div>
+            {addResults.length > 0 && (
+              <select size={Math.min(addResults.length, 6)} value={addChoice}
+                onChange={e => setAddChoice(e.target.value)}
+                style={{ width:'100%', fontSize:13, padding:'3px 6px', borderRadius:3,
+                  border:`1px solid ${C.parchDark}`, fontFamily:"'Crimson Pro',serif",
+                  background:'var(--select-bg)', color:C.ink, outline:'none' }}>
+                <option value='' disabled>— select —</option>
+                {addResults.map(i => <option key={i.name} value={i.name}>{i.name}</option>)}
+              </select>
+            )}
+          </div>
+        </div>
+
+        {/* Paired rows */}
+        {rowCount === 0 && (
+          <div style={{ color:C.inkLight, fontSize:12, fontStyle:'italic',
+            textAlign:'center', padding:'12px 0' }}>
+            Sync your build on the left, add items to compare on the right
+          </div>
+        )}
+        {Array.from({ length: rowCount }).map((_, idx) => {
+          const leftItem  = gcItems.left[idx]  || null;
+          const rightItem = gcItems.right[idx] || null;
+          const deltas    = getDelta(leftItem, rightItem);
+          return (
+            <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr',
+              gap:6, marginBottom:4, alignItems:'start' }}>
+              {/* Left card */}
+              <div onDragOver={onDragOver} onDrop={onDrop('left', idx)}>
+                {leftItem
+                  ? <GearItemCard item={leftItem} {...cardProps('left', idx)} />
+                  : <div style={{ border:`1px dashed ${C.parchDark}`, borderRadius:4,
+                      minHeight:36, padding:'8px 6px', color:C.inkLight, fontSize:12,
+                      fontStyle:'italic', textAlign:'center' }}>—</div>
+                }
+              </div>
+              {/* Delta column */}
+              <div style={{ padding:'4px 2px', fontSize:12 }}>
+                {deltas.length > 0
+                  ? deltas.map(d => (
+                      <div key={d.label} style={{ marginBottom:3 }}>
+                        <div style={{ fontSize:10, color:C.inkLight, textAlign:'center',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {d.label}
+                        </div>
+                        <div style={{ textAlign:'center', fontWeight:700, fontSize:12,
+                          color: d.deltaMin >= 0 ? '#27AE60' : d.deltaMax <= 0 ? '#e05050' : '#e8b86d' }}>
+                          {d.deltaMin === d.deltaMax
+                            ? `${d.deltaMin >= 0 ? '+' : ''}${d.deltaMin}`
+                            : `${d.deltaMin >= 0 ? '+' : ''}${d.deltaMin} – ${d.deltaMax >= 0 ? '+' : ''}${d.deltaMax}`
+                          }
+                        </div>
+                      </div>
+                    ))
+                  : <div style={{ color:C.inkLight, fontSize:10, textAlign:'center',
+                      paddingTop:8, fontStyle:'italic' }}>—</div>
+                }
+              </div>
+              {/* Right card */}
+              <div onDragOver={onDragOver} onDrop={onDrop('right', idx)}>
+                {rightItem
+                  ? <GearItemCard item={rightItem} {...cardProps('right', idx)} />
+                  : <div style={{ border:`1px dashed ${C.parchDark}`, borderRadius:4,
+                      minHeight:36, padding:'8px 6px', color:C.inkLight, fontSize:12,
+                      fontStyle:'italic', textAlign:'center' }}>—</div>
+                }
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 
 // ── Main Component ────────────────────────────────────────────────────────────
 function BuildPlanner() {
@@ -1680,24 +1942,9 @@ function BuildPlanner() {
   const clearOrder = () => { setOrderLines([]); setExpandedMats({}); };
 
   // ── Gear Comparison state ─────────────────────────────────────────────────
-  const GEAR_SLOTS = ['Main Hand','Off Hand','Head','Chest','Back','Gloves','Belt','Boots','Neck','Ring 1','Ring 2'];
-  const makeSlot = () => ({ itemName:'', itemRatings:[], steppers:{}, mwEntries:[], kitEntries:[] });
-  const makeGearState = () => {
-    const obj = {};
-    GEAR_SLOTS.forEach(s => { obj[s] = makeSlot(); });
-    return obj;
-  };
-  const GC_KEY = 'ggvl_gear_comparison';
-  const [gearComp, setGearComp] = useState(() => {
-    try { const s = localStorage.getItem(GC_KEY); if (s) return JSON.parse(s); } catch(e) {}
-    return { left: makeGearState(), right: makeGearState() };
-  });
-  const [gcOpen, setGcOpen] = useState(false);
-  const saveGearComp = next => { setGearComp(next); try { localStorage.setItem(GC_KEY, JSON.stringify(next)); } catch(e) {} };
-  const updateSlot = (side, slot, patch) => {
-    const next = { ...gearComp, [side]: { ...gearComp[side], [slot]: { ...gearComp[side][slot], ...patch } } };
-    saveGearComp(next);
-  };
+  const makeGcItems = () => ({ left: [], right: [] });
+  const [gcItems, setGcItems] = useState(makeGcItems);
+  const updateGcItems = patch => setGcItems(prev => ({ ...prev, ...patch }));
 
   // ── Catalogue data: cache-first, background refresh ──────────────────────
   const CACHE_KEY = 'ggvl-catalogue-cache';
@@ -1782,7 +2029,7 @@ function BuildPlanner() {
   };
   const confirmSavePreset = () => {
     if (!presetInput.trim()) return;
-    const entry = { name: presetInput.trim(), selected: Array.from(selected.entries()), mwEntries };
+    const entry = { name: presetInput.trim(), selected: Array.from(selected.entries()), mwEntries, gcItems };
     const updated = [...presets, entry];
     setPresets(updated);
     savePresets(updated);
@@ -1792,6 +2039,7 @@ function BuildPlanner() {
   const loadPreset = (entry) => {
     setSelected(new Map(entry.selected));
     setMwEntries(entry.mwEntries || []);
+    setGcItems(entry.gcItems || makeGcItems());
     setActivePresetName(entry.name);
     setView('summary');
     setSidebarOpen(false);
@@ -1814,7 +2062,7 @@ function BuildPlanner() {
     setConfirmingUpdate(false);
     const updated = presets.map(p =>
       p.name === activePresetName
-        ? { ...p, selected: Array.from(selected.entries()), mwEntries }
+        ? { ...p, selected: Array.from(selected.entries()), mwEntries, gcItems }
         : p
     );
     setPresets(updated);
@@ -2555,7 +2803,7 @@ function BuildPlanner() {
                         const total = entries.reduce((s,d) => { const m = d.line.match(/([+-]?\d+)$/); return s+(m?parseInt(m[1]):0); }, 0);
                         return (<div key={cls} style={{ marginBottom: 9 }}>
                           <div style={{fontWeight:700,fontSize:14,color:C.ink,marginBottom:2}}>Caster Rating: {cls} <span style={S.diceGood}>+{total} total</span></div>
-                          {entries.map((d,i) => { const m = d.line.match(/([+-]?\d+)$/); const val = m ? Math.abs(parseInt(m[1])) : ''; return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,color:'#FBBF24'}:S.diceGood}>{cls} +{val}</span><span style={d.mw?{fontSize:11,color:'#FBBF24',fontStyle:'italic'}:S.itemTag}>{d.mw?'⭐ Masterwork':d.item}</span></div>; })}
+                          {entries.map((d,i) => { const m = d.line.match(/([+-]?\d+)$/); const val = m ? Math.abs(parseInt(m[1])) : ''; return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.diceGood}>{cls} +{val}</span><span style={d.mw?{fontSize:11,fontStyle:'italic',background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.itemTag}>{d.mw?'★ Masterwork':d.item}</span></div>; })}
                         </div>);
                       })}
                       {summary.ki.length > 0 && (() => {
@@ -2565,7 +2813,7 @@ function BuildPlanner() {
                         const totalStr = (parts.join(' ') || '0') + ' total';
                         return (<div style={{ marginBottom: 9 }}>
                           <div style={{fontWeight:700,fontSize:14,color:C.ink,marginBottom:2}}>Ki Rating <span style={S.diceGood}>{totalStr}</span></div>
-                          {summary.ki.map((d,i) => { const label = d.line.replace('Ki Rating: ','Ki '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,color:'#FBBF24'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,color:'#FBBF24',fontStyle:'italic'}:S.itemTag}>{d.mw?'⭐ Masterwork':d.item}</span></div>; })}
+                          {summary.ki.map((d,i) => { const label = d.line.replace('Ki Rating: ','Ki '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,fontStyle:'italic',background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.itemTag}>{d.mw?'★ Masterwork':d.item}</span></div>; })}
                         </div>);
                       })()}
                       {summary.deflection.length > 0 && (() => {
@@ -2576,21 +2824,21 @@ function BuildPlanner() {
                         const totalStr = (parts.join(' ') || `+${total}`) + ' total';
                         return (<div style={{ marginBottom: 9 }}>
                           <div style={{fontWeight:700,fontSize:14,color:C.ink,marginBottom:2}}>Deflection Rating <span style={total>=0?S.diceGood:S.diceBad}>{totalStr}</span></div>
-                          {summary.deflection.map((d,i) => { const label = d.line.replace('Deflection Rating: ','Deflection '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,color:'#FBBF24'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,color:'#FBBF24',fontStyle:'italic'}:S.itemTag}>{d.mw?'⭐ Masterwork':d.item}</span></div>; })}
+                          {summary.deflection.map((d,i) => { const label = d.line.replace('Deflection Rating: ','Deflection '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,fontStyle:'italic',background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.itemTag}>{d.mw?'★ Masterwork':d.item}</span></div>; })}
                         </div>);
                       })()}
                       {summary.evasion.length > 0 && (() => {
                         const total = summary.evasion.reduce((s,d) => { const m = d.line.match(/([+-]?\d+)$/); return s+(m?parseInt(m[1]):0); }, 0);
                         return (<div style={{ marginBottom: 9 }}>
                           <div style={{fontWeight:700,fontSize:14,color:C.ink,marginBottom:2}}>Evasion Rating <span style={total>=0?S.diceGood:S.diceBad}>{total>=0?'+':''}{total} total</span></div>
-                          {summary.evasion.map((d,i) => { const label = d.line.replace('Evasion Rating: ','Evasion '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,color:'#FBBF24'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,color:'#FBBF24',fontStyle:'italic'}:S.itemTag}>{d.mw?'⭐ Masterwork':d.item}</span></div>; })}
+                          {summary.evasion.map((d,i) => { const label = d.line.replace('Evasion Rating: ','Evasion '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,fontStyle:'italic',background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.itemTag}>{d.mw?'★ Masterwork':d.item}</span></div>; })}
                         </div>);
                       })()}
                       {summary.defense.length > 0 && (() => {
                         const total = summary.defense.reduce((s,d) => { const m = d.line.match(/([+-]?\d+)$/); return s+(m?parseInt(m[1]):0); }, 0);
                         return (<div style={{ marginBottom: 9 }}>
                           <div style={{fontWeight:700,fontSize:14,color:C.ink,marginBottom:2}}>Defense Rating <span style={total>=0?S.diceGood:S.diceBad}>{total>=0?'+':''}{total} total</span></div>
-                          {summary.defense.map((d,i) => { const label = d.line.replace('Defense Rating: ','Defense '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,color:'#FBBF24'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,color:'#FBBF24',fontStyle:'italic'}:S.itemTag}>{d.mw?'⭐ Masterwork':d.item}</span></div>; })}
+                          {summary.defense.map((d,i) => { const label = d.line.replace('Defense Rating: ','Defense '); return <div key={i} style={{...S.row,paddingLeft:10}}><span style={d.mw?{fontWeight:700,background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.diceGood}>{label}</span><span style={d.mw?{fontSize:11,fontStyle:'italic',background:MW_TEXT_GRAD,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}:S.itemTag}>{d.mw?'★ Masterwork':d.item}</span></div>; })}
                         </div>);
                       })()}
                     </SectionCard>
@@ -2651,13 +2899,13 @@ function BuildPlanner() {
                       })}
                     </SectionCard>
                   )}
-                  <SectionCard title="Masterwork Properties" color="#92400e" accent="#F59E0B" icon="⭐">
+                  <SectionCard title="Masterwork Properties" gradient={MW_TEXT_GRAD} icon="★">
                     {/* Toggle button */}
                     {!mwAdding && (
                       <button
                         type="button"
                         onClick={() => withScrollLock(() => setMwAdding(true))}
-                        style={{display:'flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:4,border:`1px solid #FBBF24`,background:'transparent',color:'#FBBF24',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:"'Crimson Pro',serif",marginBottom: mwEntries.length > 0 ? 8 : 0}}
+                        style={{display:'flex',alignItems:'center',gap:5,padding:'4px 12px',borderRadius:4,border:'1px solid #96aec8',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:"'Crimson Pro',serif",marginBottom: mwEntries.length > 0 ? 8 : 0, background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}
                       >＋ Add Masterwork</button>
                     )}
                     {/* Input row — visible only when mwAdding */}
@@ -2666,7 +2914,7 @@ function BuildPlanner() {
                         <select
                           value={mwDropdown}
                           onChange={e => { const v = e.target.value; withScrollLock(() => setMwDropdown(v)); }}
-                          style={{flex:'1 1 140px',minWidth:0,padding:'4px 6px',borderRadius:4,border:`1px solid #FBBF24`,background:'var(--card-bg)',color:C.ink,fontSize:13,fontFamily:"'Crimson Pro',serif"}}
+                          style={{flex:'1 1 140px',minWidth:0,padding:'4px 6px',borderRadius:4,border:'1px solid #96aec8',background:'var(--card-bg)',color:C.ink,fontSize:13,fontFamily:"'Crimson Pro',serif"}}
                         >
                           <optgroup label="── Skills ──">
                             {MW_SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -2676,25 +2924,25 @@ function BuildPlanner() {
                           </optgroup>
                         </select>
                         <div style={{display:'flex',alignItems:'center',gap:4}}>
-                          <span style={{color:'#FBBF24',fontWeight:700}}>+</span>
+                          <span style={{background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700}}>+</span>
                           <input
                             type="text" inputMode="numeric" value={mwValue}
                             onChange={e => { const v = e.target.value; withScrollLock(() => setMwValue(v)); }}
                             onKeyDown={e => e.key === 'Enter' && addMwEntry()}
                             placeholder="N"
-                            style={{width:54,padding:'4px 6px',borderRadius:4,border:`1px solid #FBBF24`,background:'var(--card-bg)',color:C.ink,fontSize:13,fontFamily:"'Crimson Pro',serif",textAlign:'center'}}
+                            style={{width:54,padding:'4px 6px',borderRadius:4,border:'1px solid #96aec8',background:'var(--card-bg)',color:C.ink,fontSize:13,fontFamily:"'Crimson Pro',serif",textAlign:'center'}}
                           />
                         </div>
-                        <button type="button" onClick={addMwEntry} style={{padding:'4px 12px',borderRadius:4,border:'none',background:'#F59E0B',color:'#1c1008',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:"'Crimson Pro',serif"}}>Add</button>
-                        <button type="button" onClick={() => withScrollLock(() => { setMwAdding(false); setMwValue(''); })} style={{padding:'4px 8px',borderRadius:4,border:`1px solid #FBBF24`,background:'transparent',color:'#FBBF24',fontSize:12,cursor:'pointer',fontFamily:"'Crimson Pro',serif"}}>Cancel</button>
+                        <button type="button" onClick={addMwEntry} style={{padding:'4px 12px',borderRadius:4,border:'none',background:MW_GRAD,color:'#0d1a20',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:"'Crimson Pro',serif"}}>Add</button>
+                        <button type="button" onClick={() => withScrollLock(() => { setMwAdding(false); setMwValue(''); })} style={{padding:'4px 8px',borderRadius:4,border:'1px solid #96aec8',background:'transparent',fontSize:12,cursor:'pointer',fontFamily:"'Crimson Pro',serif", background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Cancel</button>
                       </div>
                     )}
                     {/* Entry list */}
                     {mwEntries.length === 0 && !mwAdding
                       ? <div style={{color:C.inkMid,fontSize:12,fontStyle:'italic',marginTop:4}}>No masterwork bonuses added.</div>
                       : mwEntries.map((e,i) => (
-                          <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'3px 0',borderBottom:`1px solid rgba(251,191,36,.2)`}}>
-                            <span style={{color:'#FBBF24',fontWeight:700,fontSize:13}}>{e.property} <span style={{color:'#FDE68A'}}>+{e.value}</span></span>
+                          <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'3px 0',borderBottom:'1px solid rgba(138,172,192,.2)'}}>
+                            <span style={{background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700,fontSize:13}}>{e.property} +{e.value}</span>
                             <button type="button" onClick={() => removeMwEntry(i)} style={{background:'none',border:'none',cursor:'pointer',color:C.inkMid,fontSize:14,padding:'0 4px',lineHeight:1}}>×</button>
                           </div>
                         ))
@@ -2730,56 +2978,13 @@ function BuildPlanner() {
               )}
 
               {/* ── Gear Comparison ── */}
-              <div style={{ maxWidth:1200, margin:'12px auto 0', width:'100%' }}>
-                <div style={{ ...S.summCard, overflow:'hidden' }}>
-                  <div onClick={() => setGcOpen(o => !o)}
-                    style={{ ...S.summHead('#1a2a4a','#2a3a6a'), cursor:'pointer', userSelect:'none',
-                      borderRadius: gcOpen ? '5px 5px 0 0' : 5,
-                      display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span style={{ fontFamily:"'Cinzel',serif", fontSize:13, fontWeight:700,
-                      color:'#b8c8e8', letterSpacing:'.05em' }}>⚔ Gear Comparison</span>
-                    <span style={{ color:'#b8c8e8', fontSize:14 }}>{gcOpen ? '▲' : '▼'}</span>
-                  </div>
-                  {gcOpen && (
-                    <div style={{ padding:'10px 12px', background:C.parchMid }}>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                        <div style={{ ...S.summHead('#1a3a25','#2a5a35'), padding:'6px 10px',
-                          fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
-                          color:'#a8d4b0', letterSpacing:'.05em', borderRadius:4 }}>
-                          Current Gear
-                        </div>
-                        <div style={{ ...S.summHead('#2a1a4a','#3a2a6a'), padding:'6px 10px',
-                          fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
-                          color:'#b8a8d8', letterSpacing:'.05em', borderRadius:4 }}>
-                          Potential Upgrade
-                        </div>
-                      </div>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
-                        {GEAR_SLOTS.map(slot => (
-                          <React.Fragment key={slot}>
-                            <GearSlotCard side="left" slot={slot}
-                              data={gearComp.left[slot]} updateSlot={updateSlot}
-                              catalogueData={catalogueData}
-                              MW_OPTIONS={MW_OPTIONS} MW_SKILLS={MW_SKILLS} MW_RATINGS={MW_RATINGS} />
-                            <GearSlotCard side="right" slot={slot}
-                              data={gearComp.right[slot]} updateSlot={updateSlot}
-                              catalogueData={catalogueData}
-                              MW_OPTIONS={MW_OPTIONS} MW_SKILLS={MW_SKILLS} MW_RATINGS={MW_RATINGS} />
-                          </React.Fragment>
-                        ))}
-                      </div>
-                      <div style={{ textAlign:'right', marginTop:8 }}>
-                        <button onClick={() => saveGearComp({ left: makeGearState(), right: makeGearState() })}
-                          style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                            padding:'3px 10px', cursor:'pointer', color:C.inkMid, fontSize:12,
-                            fontFamily:"'Crimson Pro',serif" }}>
-                          Clear All
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <GearComparison
+                gcItems={gcItems}
+                updateGcItems={updateGcItems}
+                catalogueData={catalogueData}
+                buildItems={Array.from(selected.keys())}
+                MW_OPTIONS={MW_OPTIONS} MW_SKILLS={MW_SKILLS} MW_RATINGS={MW_RATINGS}
+              />
             </>
           )}
         </div>
