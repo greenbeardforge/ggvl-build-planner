@@ -94,6 +94,9 @@
     .tier-mw  {background:linear-gradient(135deg,#8aacc0 0%,#a898c4 22%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%); color:#1a1828; border:1px solid #98a8bc; box-shadow:0 0 8px rgba(140,160,210,.4), inset 0 1px 0 rgba(255,255,255,.25);} /* Pearl */
     .tier-badge{display:inline-block;border-radius:3px;padding:1px 7px;font-size:11px;font-weight:700;font-family:'Crimson Pro',serif;letter-spacing:.04em;}
 
+    /* ── Select dropdowns ───────────── */
+    select:not(.commission-select) { appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7a50'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; padding-right:24px; }
+
     /* ── Commission Order selects ───────── */
     .commission-select { appearance:none; -webkit-appearance:none; }
     .commission-select:hover, .commission-select:focus { background-color:var(--table-bg) !important; color:var(--ink) !important; outline:1px solid rgba(232,184,109,0.4); outline-offset:0; }
@@ -669,7 +672,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.0.0</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.1.1</div>
           </div>
         </div>
       )}
@@ -1320,6 +1323,270 @@ const SkillRow = ({ skill, entries }) => {
   );
 };
 
+// ── Gear Comparison helpers ────────────────────────────────────────────────────
+function getPositiveRatings(item) {
+  const results = [];
+  ['sr1','sr2','sr3','sr4'].forEach(k => {
+    if (!item[k]) return;
+    const p = parseSkillLine(item[k]);
+    if (p && p.sign > 0) results.push({ label: p.skill, dice: p.dice });
+  });
+  ['caster','ki','deflection'].forEach(k => {
+    if (!item[k]) return;
+    const m = item[k].match(/\+(\d+)d4/);
+    if (m) results.push({ label: item[k].split(':')[0].trim(), dice: parseInt(m[1],10) });
+  });
+  return results;
+}
+
+const MW_GRAD = 'linear-gradient(90deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%)';
+
+function GearSlotCard({ side, slot, data, updateSlot, catalogueData, MW_OPTIONS, MW_SKILLS, MW_RATINGS }) {
+  const isLeft = side === 'left';
+  const hdrGrad = isLeft ? 'linear-gradient(135deg,#1a3a25 0%,#2a5a35 100%)' : 'linear-gradient(135deg,#2a1a4a 0%,#3a2a6a 100%)';
+  const [query,      setQuery]      = React.useState('');
+  const [results,    setResults]    = React.useState([]);
+  const [addingMw,   setAddingMw]   = React.useState(false);
+  const [mwProp,     setMwProp]     = React.useState(MW_OPTIONS[0] || '');
+  const [mwVal,      setMwVal]      = React.useState(1);
+  const [addingKit,  setAddingKit]  = React.useState(false);
+  const [kitChoice,  setKitChoice]  = React.useState('');
+
+  const upgradeKits = React.useMemo(() =>
+    catalogueData.filter(i => i.category === '[Upgrade Kit]'),
+  [catalogueData]);
+
+  const search = v => {
+    setQuery(v);
+    if (v.length < 2) { setResults([]); return; }
+    const q = v.toLowerCase();
+    setResults(catalogueData.filter(i => i.name.toLowerCase().includes(q)).slice(0, 8));
+  };
+
+  const selectItem = item => {
+    const ratings = getPositiveRatings(item);
+    const steppers = {};
+    ratings.forEach(r => { steppers[r.label] = r.dice; });
+    updateSlot(side, slot, { itemName: item.name, itemRatings: ratings, steppers, mwEntries: data.mwEntries, kitEntries: data.kitEntries });
+    setQuery('');
+    setResults([]);
+  };
+
+  const stepperVal = label => data.steppers[label] ?? (data.itemRatings.find(r => r.label === label)?.dice ?? 1);
+  const setStepperVal = (label, v) => {
+    const rating = data.itemRatings.find(r => r.label === label);
+    const min = rating ? rating.dice : 1;
+    const max = rating ? rating.dice * 4 : 20;
+    const clamped = Math.max(min, Math.min(max, v));
+    updateSlot(side, slot, { steppers: { ...data.steppers, [label]: clamped } });
+  };
+
+  const confirmMw = () => {
+    if (!mwProp) return;
+    updateSlot(side, slot, { mwEntries: [...data.mwEntries, { prop: mwProp, val: mwVal }] });
+    setAddingMw(false); setMwVal(1);
+  };
+  const removeMw = idx => updateSlot(side, slot, { mwEntries: data.mwEntries.filter((_,i) => i !== idx) });
+
+  const confirmKit = () => {
+    if (!kitChoice) return;
+    const kit = upgradeKits.find(k => k.name === kitChoice);
+    if (!kit) return;
+    const ratings = getPositiveRatings(kit);
+    const kitSteppers = {};
+    ratings.forEach(r => { kitSteppers[r.label] = r.dice; });
+    updateSlot(side, slot, { kitEntries: [...data.kitEntries, { kitName: kitChoice, ratings, steppers: kitSteppers }] });
+    setAddingKit(false); setKitChoice('');
+  };
+  const removeKit = idx => updateSlot(side, slot, { kitEntries: data.kitEntries.filter((_,i) => i !== idx) });
+  const setKitStepper = (kitIdx, label, v) => {
+    const kit = data.kitEntries[kitIdx];
+    const rating = kit.ratings.find(r => r.label === label);
+    const min = rating ? rating.dice : 1;
+    const max = rating ? rating.dice * 4 : 20;
+    const clamped = Math.max(min, Math.min(max, v));
+    const updated = data.kitEntries.map((k,i) => i === kitIdx ? { ...k, steppers: { ...k.steppers, [label]: clamped } } : k);
+    updateSlot(side, slot, { kitEntries: updated });
+  };
+
+  const promoteToLeft = () => {
+    /* no-op — handled at parent level via updateSlot on left side */
+  };
+
+  const stepBtn = (onClick, lbl) => (
+    <button onClick={onClick} style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+      width:20, height:20, cursor:'pointer', color:C.inkMid, fontSize:14, lineHeight:1,
+      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+      {lbl}
+    </button>
+  );
+
+  return (
+    <div style={{ border:`1px solid ${C.parchDark}`, borderRadius:5, overflow:'hidden', marginBottom:4 }}>
+      {/* Slot header */}
+      <div style={{ background: hdrGrad, padding:'5px 10px',
+        fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+        color: isLeft ? '#a8d4b0' : '#b8a8d8', letterSpacing:'.06em', textTransform:'uppercase' }}>
+        {slot}
+      </div>
+
+      {/* Body */}
+      <div style={{ padding:'8px 10px', display:'flex', flexDirection:'column', gap:6, background:C.parchMid }}>
+
+        {/* Item search */}
+        <div style={{ position:'relative' }}>
+          <input value={query} onChange={e => search(e.target.value)}
+            placeholder={data.itemName || 'Search item…'}
+            style={{ ...S.input, fontSize:13, width:'100%' }} />
+          {results.length > 0 && (
+            <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:50,
+              border:`1px solid ${C.parchDark}`, background:C.parchMid, borderRadius:'0 0 4px 4px',
+              maxHeight:160, overflowY:'auto' }}>
+              {results.map(item => (
+                <div key={item.name} onClick={() => selectItem(item)}
+                  style={{ padding:'4px 8px', cursor:'pointer', fontSize:13, color:C.ink,
+                    borderBottom:`1px solid ${C.parchDark}` }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.parchDark}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  {item.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Skill ratings */}
+        {data.itemRatings.length > 0 && (
+          <div style={{ display:'flex', flexDirection:'column', gap:3, borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
+            {data.itemRatings.map(r => (
+              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:13 }}>
+                <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
+                {isLeft ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
+                    <span style={{ color:'#27AE60', fontWeight:700, minWidth:22, textAlign:'center' }}>
+                      +{stepperVal(r.label)}
+                    </span>
+                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
+                  </div>
+                ) : (
+                  <span style={{ color:'#27AE60', fontWeight:700 }}>
+                    +{r.dice * 4} <span style={{ color:C.inkMid, fontWeight:400, fontSize:11 }}>(+{r.dice}d4)</span>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* MW section */}
+        <div style={{ borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
+          {data.mwEntries.map((e, idx) => (
+            <div key={idx} style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
+              <span style={{ flex:1, fontSize:12, fontWeight:700,
+                background: MW_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                {e.prop} +{e.val}
+              </span>
+              <button onClick={() => removeMw(idx)} style={{ background:'none', border:'none', cursor:'pointer',
+                color:C.inkMid, fontSize:14, lineHeight:1, padding:'0 2px' }}>×</button>
+            </div>
+          ))}
+          {addingMw ? (
+            <div style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
+              <select value={mwProp} onChange={e => setMwProp(e.target.value)}
+                style={{ ...S.input, fontSize:12, flex:1, minWidth:0, color:'#c8cdd4' }}>
+                <optgroup label="Skills">
+                  {MW_SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
+                </optgroup>
+                <optgroup label="Ratings">
+                  {MW_RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
+                </optgroup>
+              </select>
+              <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+                {stepBtn(() => setMwVal(v => Math.max(1, v - 1)), '−')}
+                <span style={{ minWidth:22, textAlign:'center', fontSize:13,
+                  background: MW_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
+                  fontWeight:700 }}>+{mwVal}</span>
+                {stepBtn(() => setMwVal(v => Math.min(20, v + 1)), '+')}
+              </div>
+              <button onClick={confirmMw} style={{ background:'none', border:`1px solid ${C.parchDark}`,
+                borderRadius:3, padding:'2px 7px', cursor:'pointer', color:'#27AE60', fontSize:13 }}>✓</button>
+              <button onClick={() => setAddingMw(false)} style={{ background:'none', border:'none',
+                cursor:'pointer', color:C.inkMid, fontSize:16 }}>×</button>
+            </div>
+          ) : data.mwEntries.length === 0 && (
+            <button onClick={() => setAddingMw(true)}
+              style={{ background:'none', border:`1px solid #8aacc0`, borderRadius:3,
+                padding:'2px 8px', cursor:'pointer', fontSize:12,
+                fontFamily:"'Crimson Pro',serif",
+                background: MW_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+              ＋ Masterwork
+            </button>
+          )}
+        </div>
+
+        {/* Kit section */}
+        <div style={{ borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
+          {data.kitEntries.map((ke, kidx) => (
+            <div key={kidx} style={{ marginBottom:5 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:3 }}>
+                <span style={{ flex:1, fontSize:12, fontWeight:700, color:C.inkMid }}>{ke.kitName}</span>
+                <button onClick={() => removeKit(kidx)} style={{ background:'none', border:'none',
+                  cursor:'pointer', color:C.inkMid, fontSize:14, lineHeight:1, padding:'0 2px' }}>×</button>
+              </div>
+              {ke.ratings.map(r => (
+                <div key={r.label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, paddingLeft:8, marginBottom:2 }}>
+                  <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+                    {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) - 1), '−')}
+                    <span style={{ color:'#27AE60', fontWeight:700, minWidth:22, textAlign:'center' }}>
+                      +{ke.steppers[r.label] ?? r.dice}
+                    </span>
+                    {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) + 1), '+')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+          {addingKit ? (
+            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+              <select value={kitChoice} onChange={e => setKitChoice(e.target.value)}
+                style={{ ...S.input, fontSize:12, flex:1, minWidth:0 }}>
+                <option value=''>Select kit…</option>
+                {upgradeKits.map(k => <option key={k.name} value={k.name}>{k.name}</option>)}
+              </select>
+              <button onClick={confirmKit} style={{ background:'none', border:`1px solid ${C.parchDark}`,
+                borderRadius:3, padding:'2px 7px', cursor:'pointer', color:'#27AE60', fontSize:13 }}>✓</button>
+              <button onClick={() => setAddingKit(false)} style={{ background:'none', border:'none',
+                cursor:'pointer', color:C.inkMid, fontSize:16 }}>×</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingKit(true)}
+              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                padding:'2px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                fontFamily:"'Crimson Pro',serif", marginTop:2 }}>
+              ＋ Upgrade Kit
+            </button>
+          )}
+        </div>
+
+        {/* Promote button (right column only) */}
+        {!isLeft && data.itemName && (
+          <div style={{ borderTop:`1px solid ${C.parchDark}`, paddingTop:5 }}>
+            <button onClick={() => promoteToLeft()}
+              style={{ background:'none', border:`1px solid #4a4a7a`, borderRadius:3,
+                padding:'2px 8px', cursor:'pointer', fontSize:12, color:'#9090c0',
+                fontFamily:"'Crimson Pro',serif", width:'100%' }}>
+              ← Promote to Current
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 function BuildPlanner() {
   const [selected,     setSelected]    = useState(new Map());
@@ -1411,6 +1678,26 @@ function BuildPlanner() {
   const setLineSourced = (id, sourced) => setOrderLines(prev => prev.map(l => l.id === id ? {...l, sourced} : l));
   const setLineQty = (id, qty) => setOrderLines(prev => prev.map(l => l.id === id ? {...l, qty} : l));
   const clearOrder = () => { setOrderLines([]); setExpandedMats({}); };
+
+  // ── Gear Comparison state ─────────────────────────────────────────────────
+  const GEAR_SLOTS = ['Main Hand','Off Hand','Head','Chest','Back','Gloves','Belt','Boots','Neck','Ring 1','Ring 2'];
+  const makeSlot = () => ({ itemName:'', itemRatings:[], steppers:{}, mwEntries:[], kitEntries:[] });
+  const makeGearState = () => {
+    const obj = {};
+    GEAR_SLOTS.forEach(s => { obj[s] = makeSlot(); });
+    return obj;
+  };
+  const GC_KEY = 'ggvl_gear_comparison';
+  const [gearComp, setGearComp] = useState(() => {
+    try { const s = localStorage.getItem(GC_KEY); if (s) return JSON.parse(s); } catch(e) {}
+    return { left: makeGearState(), right: makeGearState() };
+  });
+  const [gcOpen, setGcOpen] = useState(false);
+  const saveGearComp = next => { setGearComp(next); try { localStorage.setItem(GC_KEY, JSON.stringify(next)); } catch(e) {} };
+  const updateSlot = (side, slot, patch) => {
+    const next = { ...gearComp, [side]: { ...gearComp[side], [slot]: { ...gearComp[side][slot], ...patch } } };
+    saveGearComp(next);
+  };
 
   // ── Catalogue data: cache-first, background refresh ──────────────────────
   const CACHE_KEY = 'ggvl-catalogue-cache';
@@ -2057,7 +2344,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.0.0</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.1.1</div>
           </div>
         </div>
         )}
@@ -2441,6 +2728,58 @@ function BuildPlanner() {
                   </div>
                 </div>
               )}
+
+              {/* ── Gear Comparison ── */}
+              <div style={{ maxWidth:1200, margin:'12px auto 0', width:'100%' }}>
+                <div style={{ ...S.summCard, overflow:'hidden' }}>
+                  <div onClick={() => setGcOpen(o => !o)}
+                    style={{ ...S.summHead('#1a2a4a','#2a3a6a'), cursor:'pointer', userSelect:'none',
+                      borderRadius: gcOpen ? '5px 5px 0 0' : 5,
+                      display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span style={{ fontFamily:"'Cinzel',serif", fontSize:13, fontWeight:700,
+                      color:'#b8c8e8', letterSpacing:'.05em' }}>⚔ Gear Comparison</span>
+                    <span style={{ color:'#b8c8e8', fontSize:14 }}>{gcOpen ? '▲' : '▼'}</span>
+                  </div>
+                  {gcOpen && (
+                    <div style={{ padding:'10px 12px', background:C.parchMid }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                        <div style={{ ...S.summHead('#1a3a25','#2a5a35'), padding:'6px 10px',
+                          fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
+                          color:'#a8d4b0', letterSpacing:'.05em', borderRadius:4 }}>
+                          Current Gear
+                        </div>
+                        <div style={{ ...S.summHead('#2a1a4a','#3a2a6a'), padding:'6px 10px',
+                          fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
+                          color:'#b8a8d8', letterSpacing:'.05em', borderRadius:4 }}>
+                          Potential Upgrade
+                        </div>
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
+                        {GEAR_SLOTS.map(slot => (
+                          <React.Fragment key={slot}>
+                            <GearSlotCard side="left" slot={slot}
+                              data={gearComp.left[slot]} updateSlot={updateSlot}
+                              catalogueData={catalogueData}
+                              MW_OPTIONS={MW_OPTIONS} MW_SKILLS={MW_SKILLS} MW_RATINGS={MW_RATINGS} />
+                            <GearSlotCard side="right" slot={slot}
+                              data={gearComp.right[slot]} updateSlot={updateSlot}
+                              catalogueData={catalogueData}
+                              MW_OPTIONS={MW_OPTIONS} MW_SKILLS={MW_SKILLS} MW_RATINGS={MW_RATINGS} />
+                          </React.Fragment>
+                        ))}
+                      </div>
+                      <div style={{ textAlign:'right', marginTop:8 }}>
+                        <button onClick={() => saveGearComp({ left: makeGearState(), right: makeGearState() })}
+                          style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                            padding:'3px 10px', cursor:'pointer', color:C.inkMid, fontSize:12,
+                            fontFamily:"'Crimson Pro',serif" }}>
+                          Clear All
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </>
           )}
         </div>
