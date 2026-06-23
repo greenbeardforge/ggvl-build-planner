@@ -177,7 +177,7 @@ const C = {
   accent:     '#c8973a', glow: '#e8b86d',
   parchment:  'var(--parchment)', parchMid: 'var(--parchment-mid)', parchDark: 'var(--parchment-dark)',
   ink:        'var(--ink)', inkMid: 'var(--ink-mid)', inkLight: 'var(--ink-light)',
-  red:        'var(--red-danger)', green: '#27AE60', blue: '#1e3a6e',
+  red:        'var(--red-danger)', danger: '#e05050', green: '#27AE60', blue: '#1e3a6e',
   lwRow:      'var(--parchment-row)', tinkRow: 'var(--parchment-row)', wwRow: 'var(--parchment-row)',
 };
 
@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.0</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.9</div>
           </div>
         </div>
       )}
@@ -1330,15 +1330,24 @@ const SkillRow = ({ skill, entries }) => {
 // ── Gear Comparison helpers ────────────────────────────────────────────────────
 function getPositiveRatings(item) {
   const results = [];
+  // Skill ratings — dice-based (d4s)
   ['sr1','sr2','sr3','sr4'].forEach(k => {
     if (!item[k]) return;
     const p = parseSkillLine(item[k]);
-    if (p && p.sign > 0) results.push({ label: p.skill, dice: p.dice });
+    if (p && p.sign > 0) results.push({ label: p.skill, dice: p.dice, flat: false });
   });
-  ['caster','ki','deflection'].forEach(k => {
+  // Additional ratings — flat values, stored as {label, flat:true, val:N}
+  ['caster','ki','deflection','evasion','defense'].forEach(k => {
     if (!item[k]) return;
-    const m = item[k].match(/\+(\d+)d4/);
-    if (m) results.push({ label: item[k].split(':')[0].trim(), dice: parseInt(m[1],10) });
+    item[k].split('\n').filter(Boolean).forEach(line => {
+      const m = line.match(/([+-]?\d+)(?:d4)?$/);
+      if (!m) return;
+      const val = parseInt(m[1], 10);
+      if (val <= 0) return;
+      // Label: everything before the final number, trimmed
+      const label = line.replace(/\s*[+-]?\d+(?:d4)?$/, '').trim();
+      results.push({ label, flat: true, val });
+    });
   });
   return results;
 }
@@ -1350,6 +1359,7 @@ function getPositiveRatings(item) {
 // MW_TEXT_GRAD — 135deg (angled shine)    — used for text, headers, entry rows
 const MW_GRAD      = 'linear-gradient(90deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%)';
 const MW_TEXT_GRAD = 'linear-gradient(135deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%)';
+const EXPERTS_TOOL_PCT = 0.75; // Expert's Tool: guarantees up to 75% of max roll
 
 // ── Gear Comparison ───────────────────────────────────────────────────────────
 // GearItemCard: one item in either column. Props:
@@ -1359,7 +1369,7 @@ const MW_TEXT_GRAD = 'linear-gradient(135deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,
 //   onRemove()
 //   onDragStart(e), onDragOver(e), onDrop(e)
 //   catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS
-function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver, onDrop, catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS }) {
+function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver, onDragEnd, onDrop, catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS }) {
   const [addingMw,     setAddingMw]     = React.useState(false);
   const [mwProp,       setMwProp]       = React.useState(MW_OPTIONS[0] || '');
   const [mwVal,        setMwVal]        = React.useState(1);
@@ -1374,11 +1384,14 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
     catalogueData.filter(i => i.category === '[Upgrade Kit]'),
   [catalogueData]);
 
-  const stepperVal = label => item.steppers[label] ?? (item.itemRatings.find(r => r.label === label)?.dice ?? 1);
+  const stepperVal = label => {
+    const rating = (item.itemRatings ?? []).find(r => r.label === label);
+    return item.steppers[label] ?? (rating?.flat ? rating.val : (rating?.dice ?? 1));
+  };
   const setStepperVal = (label, v) => {
-    const rating = item.itemRatings.find(r => r.label === label);
-    const min = rating ? rating.dice : 1;
-    const max = rating ? rating.dice * 4 : 20;
+    const rating = (item.itemRatings ?? []).find(r => r.label === label);
+    const min = rating?.flat ? 1 : (rating?.dice ?? 1);
+    const max = rating?.flat ? 99 : (rating?.dice * 4 ?? 20);
     onUpdate({ steppers: { ...item.steppers, [label]: Math.max(min, Math.min(max, v)) } });
   };
 
@@ -1387,13 +1400,13 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
     onUpdate({ mwEntries: [...item.mwEntries, { prop: mwProp, val: mwVal }] });
     setAddingMw(false); setMwVal(1);
   };
-  const removeMw = idx => onUpdate({ mwEntries: item.mwEntries.filter((_,i) => i !== idx) });
+  const removeMw = idx => onUpdate({ mwEntries: (item.mwEntries ?? []).filter((_,i) => i !== idx) });
 
   const searchKits = v => {
     setKitQuery(v);
     if (v.length < 2) { setKitResults([]); setKitChoice(''); return; }
     const q = v.toLowerCase();
-    const found = upgradeKits.filter(k => k.name.toLowerCase().includes(q)).slice(0, 8);
+    const found = upgradeKits.filter(k => k.name.toLowerCase().includes(q)).sort((a,b) => a.name.localeCompare(b.name));
     setKitResults(found);
     setKitChoice(found.length > 0 ? found[0].name : '');
   };
@@ -1408,13 +1421,13 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
     onUpdate({ kitEntries: [...item.kitEntries, { kitName: kitChoice, ratings, steppers }] });
     setAddingKit(false); setKitQuery(''); setKitResults([]); setKitChoice('');
   };
-  const removeKit = idx => onUpdate({ kitEntries: item.kitEntries.filter((_,i) => i !== idx) });
+  const removeKit = idx => onUpdate({ kitEntries: (item.kitEntries ?? []).filter((_,i) => i !== idx) });
   const setKitStepper = (kidx, label, v) => {
     const kit = item.kitEntries[kidx];
     const rating = kit.ratings.find(r => r.label === label);
     const min = rating ? rating.dice : 1;
     const max = rating ? rating.dice * 4 : 20;
-    const updated = item.kitEntries.map((k,i) => i === kidx ? { ...k, steppers: { ...k.steppers, [label]: Math.max(min, Math.min(max, v)) } } : k);
+    const updated = (item.kitEntries ?? []).map((k,i) => i === kidx ? { ...k, steppers: { ...k.steppers, [label]: Math.max(min, Math.min(max, v)) } } : k);
     onUpdate({ kitEntries: updated });
   };
 
@@ -1426,7 +1439,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
         ...(isMw
           ? { background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }
-          : { color:'#27AE60', fontWeight:700 })
+          : { color:C.green, fontWeight:700 })
       }}>{lbl}</button>
     );
   };
@@ -1444,7 +1457,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
   );
 
   return (
-    <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}
+    <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDrop={onDrop}
       style={{ border:`1px solid ${C.parchDark}`, borderRadius:4, marginBottom:4,
         background:C.parchMid, cursor:'grab' }}>
 
@@ -1459,15 +1472,15 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         <button onClick={() => setRangeMode(m => !m)}
           style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
             padding:'1px 5px', cursor:'pointer', fontSize:10, flexShrink:0,
-            color: rangeMode ? '#27AE60' : C.inkMid, fontFamily:"'Crimson Pro',serif",
+            color: rangeMode ? C.green : C.inkMid, fontFamily:"'Crimson Pro',serif",
             fontWeight: rangeMode ? 700 : 400 }}>
           {rangeMode ? 'Range' : 'Rolled'}
         </button>
-        <button onClick={() => { if (!addingMw && item.mwEntries.length < 1) setAddingMw(true); }}
-          style={{ background:'none', border:`1px solid ${(addingMw || item.mwEntries.length >= 1) ? C.parchDark : '#8aacc0'}`,
+        <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
+          style={{ background:'none', border:`1px solid ${(addingMw || (item.mwEntries ?? []).length >= 1) ? C.parchDark : '#8aacc0'}`,
           borderRadius:3, padding:'1px 5px', fontSize:10, flexShrink:0, fontWeight:700,
-          cursor: (addingMw || item.mwEntries.length >= 1) ? 'default' : 'pointer',
-          opacity: (addingMw || item.mwEntries.length >= 1) ? 0.35 : 1,
+          cursor: (addingMw || (item.mwEntries ?? []).length >= 1) ? 'default' : 'pointer',
+          opacity: (addingMw || (item.mwEntries ?? []).length >= 1) ? 0.35 : 1,
           background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>+MW</button>
         <button onClick={() => setAddingKit(true)} style={{ background:'none', border:`1px solid ${C.parchDark}`,
           borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, color:C.inkMid, flexShrink:0,
@@ -1478,17 +1491,28 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
 
       {/* Ratings rows */}
       <div style={{ padding:'3px 6px 4px' }}>
-        {item.itemRatings.map(r => (
+        {(item.itemRatings ?? []).map(r => (
           <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
             <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
-            {rangeMode ? (
-              <span style={{ color:'#27AE60', fontWeight:700, fontSize:12 }}>
+            {r.flat ? (
+              // Flat rating — always show stepper, no range mode
+              <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
+                <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
+                  +{stepperVal(r.label)}
+                </span>
+                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
+              </div>
+            ) : rangeMode ? (
+              // Dice rating in range mode
+              <span style={{ color:C.green, fontWeight:700, fontSize:12 }}>
                 +{r.dice}–+{r.dice * 4}
               </span>
             ) : (
+              // Dice rating in rolled mode
               <div style={{ display:'flex', alignItems:'center', gap:2 }}>
                 {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
-                <span style={{ color:'#27AE60', fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
+                <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
                   +{stepperVal(r.label)}
                 </span>
                 {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
@@ -1498,7 +1522,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         ))}
 
         {/* MW entries */}
-        {item.mwEntries.map((e, idx) => (
+        {(item.mwEntries ?? []).map((e, idx) => (
           <div key={idx} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
             <span style={{ flex:1, fontWeight:700,
               background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
@@ -1534,19 +1558,19 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         )}
 
         {/* Kit entries */}
-        {item.kitEntries.map((ke, kidx) => (
+        {(item.kitEntries ?? []).map((ke, kidx) => (
           <div key={kidx} style={{ marginTop:2 }}>
             <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
               <span style={{ flex:1, color:C.inkMid, fontStyle:'italic' }}>{ke.kitName}</span>
               {cancelBtn(() => removeKit(kidx), false)}
             </div>
-            {ke.ratings.map(r => (
+            {(ke.ratings ?? []).map(r => (
               <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11,
                 paddingLeft:8, minHeight:18 }}>
                 <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
                 <div style={{ display:'flex', alignItems:'center', gap:2 }}>
                   {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) - 1), '−')}
-                  <span style={{ color:'#27AE60', fontWeight:700, minWidth:20, textAlign:'center', fontSize:11 }}>
+                  <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:11 }}>
                     +{ke.steppers[r.label] ?? r.dice}
                   </span>
                   {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) + 1), '+')}
@@ -1558,7 +1582,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
 
         {/* Kit add row */}
         {addingKit && (
-          <div style={{ display:'flex', flexDirection:'column', gap:3, marginTop:3 }}>
+          <div style={{ position:'relative', marginTop:3 }}>
             <div style={{ display:'flex', alignItems:'center', gap:3 }}>
               <input value={kitQuery} onChange={e => searchKits(e.target.value)}
                 placeholder="Search kit…"
@@ -1569,19 +1593,29 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
               {cancelBtn(() => { setAddingKit(false); setKitQuery(''); setKitResults([]); setKitChoice(''); }, false)}
             </div>
             {kitResults.length > 0 && (
-              <select size={Math.min(kitResults.length, 5)} value={kitChoice}
-                onChange={e => setKitChoice(e.target.value)}
-                style={{ width:'100%', fontSize:11, padding:'2px 4px', borderRadius:3,
-                  border:`1px solid ${C.parchDark}`, fontFamily:"'Crimson Pro',serif",
-                  background:'var(--select-bg)', color:C.ink, outline:'none' }}>
-                {kitResults.map(k => <option key={k.name} value={k.name}>{k.name}</option>)}
-              </select>
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:200,
+                marginTop:2, background:'var(--card-bg)', border:`1px solid ${C.parchDark}`,
+                borderRadius:4, boxShadow:'0 4px 16px rgba(0,0,0,.5)',
+                maxHeight:160, overflowY:'auto' }}>
+                {kitResults.map(k => (
+                  <div key={k.name}
+                    onClick={() => { setKitChoice(k.name); setKitResults([]); setKitQuery(k.name); }}
+                    style={{ padding:'4px 8px', fontSize:11, color: kitChoice === k.name ? C.ink : C.inkMid,
+                      background: kitChoice === k.name ? C.parchDark : 'transparent',
+                      cursor:'pointer', fontFamily:"'Crimson Pro',serif",
+                      borderBottom:`1px solid ${C.parchDark}` }}
+                    onMouseEnter={e => { if (kitChoice !== k.name) e.currentTarget.style.background = C.parchMid; }}
+                    onMouseLeave={e => { if (kitChoice !== k.name) e.currentTarget.style.background = 'transparent'; }}>
+                    {k.name}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
 
         {/* Empty state */}
-        {item.itemRatings.length === 0 && item.mwEntries.length === 0 && item.kitEntries.length === 0 && (
+        {(item.itemRatings ?? []).length === 0 && (item.mwEntries ?? []).length === 0 && (item.kitEntries ?? []).length === 0 && (
           <div style={{ color:C.inkLight, fontSize:11, fontStyle:'italic', padding:'2px 0' }}>No ratings</div>
         )}
       </div>
@@ -1603,7 +1637,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     setAddChoice('');
     if (v.length < 2) { setAddResults([]); return; }
     const q = v.toLowerCase();
-    setAddResults(catalogueData.filter(i => i.name.toLowerCase().includes(q)).slice(0, 8));
+    setAddResults(catalogueData.filter(i => i.name.toLowerCase().includes(q)).sort((a,b) => a.name.localeCompare(b.name)));
   };
 
   const makeItem = (catalogueItem, rangeMode=false) => {
@@ -1623,11 +1657,12 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
   };
 
   const syncFromBuild = () => {
-    const leftItems = buildItems.map(name => {
+    const leftItems = buildItems.map((name, idx) => {
       const cat = catalogueData.find(i => i.name === name);
-      if (!cat) return { id: String(Date.now() + Math.random()), itemName: name,
-        itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [] };
-      return makeItem(cat);
+      if (!cat) return { id: `sync_${idx}_${Date.now()}`, itemName: name,
+        itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [], rangeMode: false };
+      const item = makeItem(cat, false);
+      return { ...item, id: `sync_${idx}_${item.id}` };
     });
     updateGcItems({ left: leftItems });
   };
@@ -1649,6 +1684,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
   };
 
   const onDragOver = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+  const onDragEnd  = () => setDragSrc(null);
 
   const onDrop = (targetSide, targetIdx) => e => {
     e.preventDefault();
@@ -1698,34 +1734,56 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     onRemove: () => removeItem(side, idx),
     onDragStart: onDragStart(side, idx),
     onDragOver,
+    onDragEnd,
     onDrop: onDrop(side, idx),
     catalogueData, MW_OPTIONS, MW_SKILLS, MW_RATINGS
   });
 
   const rowCount = Math.max(gcItems.left.length, gcItems.right.length);
 
-  // Delta: per-skill diff between left[i] rolled value and right[i] range
+  // getItemSkillTotal: per-item total for one skill label
+  // useExpertsTool=true: right-side Range mode uses 75% of max (Expert's Tool floor)
+  // Kit ratings always use full max (unaffected by Expert's Tool)
+  // Flat ratings always exact. Rolled mode always uses actual stepper.
+  const getItemSkillTotal = (item, label, useExpertsTool) => {
+    const r   = (item.itemRatings ?? []).find(r => r.label === label);
+    const mw  = (item.mwEntries  ?? []).find(e => e.prop  === label);
+    const kitTotal = (item.kitEntries ?? []).reduce((sum, ke) => {
+      const kr = (ke.ratings ?? []).find(r => r.label === label);
+      if (!kr) return sum;
+      const rolled = item.rangeMode === false;
+      return sum + (rolled ? ((ke.steppers ?? {})[label] ?? kr.dice) : kr.dice * 4);
+    }, 0);
+    let base = 0;
+    if (r) {
+      if (r.flat) {
+        base = r.val ?? 0;
+      } else if (item.rangeMode === false) {
+        base = (item.steppers ?? {})[label] ?? r.dice;
+      } else {
+        base = useExpertsTool
+          ? Math.floor(r.dice * 4 * EXPERTS_TOOL_PCT)
+          : r.dice * 4;
+      }
+    }
+    return base + (mw ? (mw.val ?? 0) : 0) + kitTotal;
+  };
+
+  // getDelta: single per-skill delta for one item pair
   const getDelta = (leftItem, rightItem) => {
     if (!leftItem || !rightItem) return [];
     const allLabels = [...new Set([
-      ...leftItem.itemRatings.map(r => r.label),
-      ...leftItem.mwEntries.map(e => e.prop),
-      ...rightItem.itemRatings.map(r => r.label),
-      ...rightItem.mwEntries.map(e => e.prop),
+      ...(leftItem.itemRatings  ?? []).map(r => r.label),
+      ...(leftItem.mwEntries    ?? []).map(e => e.prop),
+      ...(leftItem.kitEntries   ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
+      ...(rightItem.itemRatings ?? []).map(r => r.label),
+      ...(rightItem.mwEntries   ?? []).map(e => e.prop),
+      ...(rightItem.kitEntries  ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
     ])];
-    return allLabels.map(label => {
-      const lr = leftItem.itemRatings.find(r => r.label === label);
-      const lmw = leftItem.mwEntries.find(e => e.prop === label);
-      const rr = rightItem.itemRatings.find(r => r.label === label);
-      const rmw = rightItem.mwEntries.find(e => e.prop === label);
-      const leftVal = (lr ? (leftItem.steppers[label] ?? lr.dice) : 0) + (lmw ? lmw.val : 0);
-      const rightRolled = rightItem.rangeMode === false;
-      const rightMin = (rr ? (rightRolled ? (rightItem.steppers[label] ?? rr.dice) : rr.dice) : 0) + (rmw ? rmw.val : 0);
-      const rightMax = (rr ? (rightRolled ? (rightItem.steppers[label] ?? rr.dice) : rr.dice * 4) : 0) + (rmw ? rmw.val : 0);
-      const deltaMin = rightMin - leftVal;
-      const deltaMax = rightMax - leftVal;
-      return { label, deltaMin, deltaMax };
-    }).filter(d => d.deltaMin !== 0 || d.deltaMax !== 0);
+    return allLabels.map(label => ({
+      label,
+      delta: getItemSkillTotal(rightItem, label, true) - getItemSkillTotal(leftItem, label, false),
+    })).filter(d => d.delta !== 0);
   };
 
   return (
@@ -1757,31 +1815,43 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
               padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
               fontFamily:"'Crimson Pro',serif" }}>↺ Sync from Build</button>
           <div />
-          {/* Add item row */}
-          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+          {/* Add item — floating picker */}
+          <div style={{ position:'relative' }}>
             <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-              <input value={addQuery} onChange={e => searchAdd(e.target.value)}
+              <input value={addQuery}
+                onChange={e => searchAdd(e.target.value)}
+                onFocus={e => { if (addQuery.length >= 2) searchAdd(addQuery); }}
                 placeholder="Search item…"
                 style={{ flex:1, minWidth:0, fontSize:13, padding:'3px 6px', borderRadius:3,
                   border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
                   fontFamily:"'Crimson Pro',serif" }} />
               <button onClick={addToRight}
                 style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                  padding:'2px 7px', cursor:'pointer', fontSize:14, color: addChoice ? '#27AE60' : C.inkLight,
+                  padding:'2px 7px', cursor:'pointer', fontSize:14,
+                  color: addChoice ? C.green : C.inkLight,
                   fontWeight:700, flexShrink:0 }}>✓</button>
               <button onClick={() => { setAddQuery(''); setAddResults([]); setAddChoice(''); }}
                 style={{ background:'none', border:'none', cursor:'pointer',
                   color:C.inkMid, fontSize:15, flexShrink:0 }}>×</button>
             </div>
             {addResults.length > 0 && (
-              <select size={Math.min(addResults.length, 6)} value={addChoice}
-                onChange={e => setAddChoice(e.target.value)}
-                style={{ width:'100%', fontSize:13, padding:'3px 6px', borderRadius:3,
-                  border:`1px solid ${C.parchDark}`, fontFamily:"'Crimson Pro',serif",
-                  background:'var(--select-bg)', color:C.ink, outline:'none' }}>
-                <option value='' disabled>— select —</option>
-                {addResults.map(i => <option key={i.name} value={i.name}>{i.name}</option>)}
-              </select>
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:200,
+                marginTop:2, background:'var(--card-bg)', border:`1px solid ${C.parchDark}`,
+                borderRadius:4, boxShadow:'0 4px 16px rgba(0,0,0,.5)',
+                maxHeight:220, overflowY:'auto' }}>
+                {addResults.map(item => (
+                  <div key={item.name}
+                    onClick={() => { setAddChoice(item.name); setAddResults([]); setAddQuery(item.name); }}
+                    style={{ padding:'5px 10px', fontSize:13, color: addChoice === item.name ? C.ink : C.inkMid,
+                      background: addChoice === item.name ? C.parchDark : 'transparent',
+                      cursor:'pointer', fontFamily:"'Crimson Pro',serif",
+                      borderBottom:`1px solid ${C.parchDark}` }}
+                    onMouseEnter={e => { if (addChoice !== item.name) e.currentTarget.style.background = C.parchMid; }}
+                    onMouseLeave={e => { if (addChoice !== item.name) e.currentTarget.style.background = 'transparent'; }}>
+                    {item.name}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -1819,7 +1889,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                           {d.label}
                         </div>
                         <div style={{ textAlign:'center', fontWeight:700, fontSize:12,
-                          color: d.deltaMin >= 0 ? '#27AE60' : d.deltaMax <= 0 ? '#e05050' : '#e8b86d' }}>
+                          color: d.delta > 0 ? C.green : d.delta < 0 ? C.danger : C.inkMid }}>
                           {d.deltaMin === d.deltaMax
                             ? `${d.deltaMin >= 0 ? '+' : ''}${d.deltaMin}`
                             : `${d.deltaMin >= 0 ? '+' : ''}${d.deltaMin} – ${d.deltaMax >= 0 ? '+' : ''}${d.deltaMax}`
@@ -1843,6 +1913,59 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
             </div>
           );
         })}
+        {/* Totals row */}
+        {rowCount > 0 && (() => {
+          const allLabels = [...new Set([
+            ...gcItems.left.flatMap(item => [
+              ...(item.itemRatings ?? []).map(r => r.label),
+              ...(item.mwEntries ?? []).map(e => e.prop),
+              ...(item.kitEntries ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
+            ]),
+            ...gcItems.right.flatMap(item => [
+              ...(item.itemRatings ?? []).map(r => r.label),
+              ...(item.mwEntries ?? []).map(e => e.prop),
+              ...(item.kitEntries ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
+            ]),
+          ])];
+          const totals = allLabels.map(label => {
+            const leftTotal  = gcItems.left.reduce((sum, item)  => sum + getItemSkillTotal(item,  label, false), 0);
+            const rightTotal = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal(item, label, true),  0);
+            return { label, leftTotal, rightTotal, delta: rightTotal - leftTotal };
+          }).filter(t => t.leftTotal > 0 || t.rightTotal > 0)
+            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+          if (totals.length === 0) return null;
+          return (
+            <div style={{ marginTop:8, borderTop:`2px solid ${C.parchDark}`, paddingTop:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:4 }}>
+                <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+                  color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
+                <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+                  color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Δ</div>
+                <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+                  color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
+              </div>
+              {totals.map(t => (
+                <div key={t.label} style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr',
+                  gap:6, marginBottom:3, alignItems:'center' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                    padding:'2px 6px', background:C.parchDark, borderRadius:3 }}>
+                    <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.leftTotal}</span>
+                  </div>
+                  <div style={{ textAlign:'center', fontWeight:700, fontSize:13,
+                    color: t.delta > 0 ? C.green : t.delta < 0 ? C.danger : C.inkMid }}>
+                    {t.delta > 0 ? '+' : ''}{t.delta}
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                    padding:'2px 6px', background:C.parchDark, borderRadius:3 }}>
+                    <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.rightTotal}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -2036,10 +2159,28 @@ function BuildPlanner() {
     setSavingPreset(false);
     setPresetInput('');
   };
+  const normaliseGcItem = item => ({
+    id:          item.id          ?? String(Date.now() + Math.random()),
+    itemName:    item.itemName    ?? '',
+    itemRatings: item.itemRatings ?? [],
+    steppers:    item.steppers    ?? {},
+    mwEntries:   item.mwEntries   ?? [],
+    kitEntries:  (item.kitEntries ?? []).map(ke => ({
+      kitName:  ke.kitName  ?? '',
+      ratings:  ke.ratings  ?? [],
+      steppers: ke.steppers ?? {},
+    })),
+    rangeMode:   item.rangeMode   ?? false,
+  });
+  const normaliseGcItems = gc => ({
+    left:  (gc?.left  ?? []).map(normaliseGcItem),
+    right: (gc?.right ?? []).map(normaliseGcItem),
+  });
+
   const loadPreset = (entry) => {
     setSelected(new Map(entry.selected));
     setMwEntries(entry.mwEntries || []);
-    setGcItems(entry.gcItems || makeGcItems());
+    setGcItems(normaliseGcItems(entry.gcItems));
     setActivePresetName(entry.name);
     setView('summary');
     setSidebarOpen(false);
@@ -2592,7 +2733,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.0</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.9</div>
           </div>
         </div>
         )}
@@ -2982,7 +3123,7 @@ function BuildPlanner() {
                 gcItems={gcItems}
                 updateGcItems={updateGcItems}
                 catalogueData={catalogueData}
-                buildItems={Array.from(selected.keys())}
+                buildItems={Array.from(selected.entries()).flatMap(([name, count]) => Array(count).fill(name))}
                 MW_OPTIONS={MW_OPTIONS} MW_SKILLS={MW_SKILLS} MW_RATINGS={MW_RATINGS}
               />
             </>
