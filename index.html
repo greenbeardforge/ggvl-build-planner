@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.9</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.10</div>
           </div>
         </div>
       )}
@@ -1370,15 +1370,25 @@ const EXPERTS_TOOL_PCT = 0.75; // Expert's Tool: guarantees up to 75% of max rol
 //   onDragStart(e), onDragOver(e), onDrop(e)
 //   catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS
 function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver, onDragEnd, onDrop, catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS }) {
-  const [addingMw,     setAddingMw]     = React.useState(false);
-  const [mwProp,       setMwProp]       = React.useState(MW_OPTIONS[0] || '');
-  const [mwVal,        setMwVal]        = React.useState(1);
-  const [addingKit,    setAddingKit]    = React.useState(false);
-  const [kitQuery,     setKitQuery]     = React.useState('');
-  const [kitResults,   setKitResults]   = React.useState([]);
-  const [kitChoice,    setKitChoice]    = React.useState('');
+  const [addingMw,       setAddingMw]       = React.useState(false);
+  const [mwProp,         setMwProp]         = React.useState(MW_OPTIONS[0] || '');
+  const [mwVal,          setMwVal]          = React.useState(1);
+  const [addingKit,      setAddingKit]      = React.useState(false);
+  const [kitQuery,       setKitQuery]       = React.useState('');
+  const [kitResults,     setKitResults]     = React.useState([]);
+  const [kitChoice,      setKitChoice]      = React.useState('');
+  const [addingRating,   setAddingRating]   = React.useState(false);
+  const [ratingLabel,    setRatingLabel]    = React.useState('');
+  const [ratingVal,      setRatingVal]      = React.useState(1);
   const rangeMode = item.rangeMode ?? (side === 'right');
   const setRangeMode = v => onUpdate({ rangeMode: typeof v === 'function' ? v(rangeMode) : v });
+
+  const confirmRating = () => {
+    if (!ratingLabel.trim()) return;
+    onUpdate({ itemRatings: [...(item.itemRatings ?? []), { label: ratingLabel.trim(), flat: true, val: ratingVal }] });
+    setAddingRating(false); setRatingLabel(''); setRatingVal(1);
+  };
+  const removeRating = idx => onUpdate({ itemRatings: (item.itemRatings ?? []).filter((_,i) => i !== idx) });
 
   const upgradeKits = React.useMemo(() =>
     catalogueData.filter(i => i.category === '[Upgrade Kit]'),
@@ -1465,10 +1475,16 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
       <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 6px',
         borderBottom:`1px solid ${C.parchDark}` }}>
         <span style={{ fontSize:11, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
-        <span style={{ flex:1, fontSize:12, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
-          letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-          {item.itemName || '—'}
-        </span>
+        {item.isManual
+          ? <input value={item.itemName} onChange={e => onUpdate({ itemName: e.target.value })}
+              style={{ flex:1, fontSize:12, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
+                background:'transparent', border:'none', borderBottom:`1px solid ${C.parchDark}`,
+                outline:'none', minWidth:0, letterSpacing:'.02em' }} />
+          : <span style={{ flex:1, fontSize:12, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
+              letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {item.itemName || '—'}
+            </span>
+        }
         <button onClick={() => setRangeMode(m => !m)}
           style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
             padding:'1px 5px', cursor:'pointer', fontSize:10, flexShrink:0,
@@ -1491,7 +1507,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
 
       {/* Ratings rows */}
       <div style={{ padding:'3px 6px 4px' }}>
-        {(item.itemRatings ?? []).map(r => (
+        {(item.itemRatings ?? []).map((r, idx) => (
           <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
             <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
             {r.flat ? (
@@ -1502,6 +1518,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
                   +{stepperVal(r.label)}
                 </span>
                 {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
+                {item.isManual && cancelBtn(() => removeRating(idx), false)}
               </div>
             ) : rangeMode ? (
               // Dice rating in range mode
@@ -1614,8 +1631,36 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
           </div>
         )}
 
+        {/* Manual rating add row */}
+        {item.isManual && addingRating && (
+          <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:3 }}>
+            <input value={ratingLabel} onChange={e => setRatingLabel(e.target.value)}
+              placeholder="Rating name…"
+              style={{ flex:1, minWidth:0, fontSize:11, padding:'2px 6px', borderRadius:3,
+                border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
+                fontFamily:"'Crimson Pro',serif" }} />
+            <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+              {stepBtn(() => setRatingVal(v => Math.max(1, v - 1)), '−')}
+              <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:11 }}>
+                +{ratingVal}
+              </span>
+              {stepBtn(() => setRatingVal(v => Math.min(99, v + 1)), '+')}
+            </div>
+            <button onClick={confirmRating} style={{ background:'none', border:`1px solid ${C.parchDark}`,
+              borderRadius:3, padding:'1px 6px', cursor:'pointer', fontSize:12,
+              color:C.green, fontWeight:700, flexShrink:0 }}>✓</button>
+            {cancelBtn(() => { setAddingRating(false); setRatingLabel(''); setRatingVal(1); }, false)}
+          </div>
+        )}
+        {item.isManual && !addingRating && (
+          <button onClick={() => setAddingRating(true)}
+            style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+              padding:'1px 6px', marginTop:3, cursor:'pointer', fontSize:10, color:C.inkMid,
+              fontFamily:"'Crimson Pro',serif" }}>+ Add Rating</button>
+        )}
+
         {/* Empty state */}
-        {(item.itemRatings ?? []).length === 0 && (item.mwEntries ?? []).length === 0 && (item.kitEntries ?? []).length === 0 && (
+        {(item.itemRatings ?? []).length === 0 && (item.mwEntries ?? []).length === 0 && (item.kitEntries ?? []).length === 0 && !item.isManual && (
           <div style={{ color:C.inkLight, fontSize:11, fontStyle:'italic', padding:'2px 0' }}>No ratings</div>
         )}
       </div>
@@ -1665,6 +1710,20 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
       return { ...item, id: `sync_${idx}_${item.id}` };
     });
     updateGcItems({ left: leftItems });
+  };
+
+  const addManualToLeft = () => {
+    const item = {
+      id: `manual_${Date.now()}`,
+      itemName: 'Manual Item',
+      itemRatings: [],
+      steppers: {},
+      mwEntries: [],
+      kitEntries: [],
+      rangeMode: false,
+      isManual: true,
+    };
+    updateGcItems({ left: [...gcItems.left, item] });
   };
 
   const updateItem = (side, idx, patch) => {
@@ -1810,10 +1869,16 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
 
         {/* Sync button + add row */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:6 }}>
-          <button onClick={syncFromBuild}
-            style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-              padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
-              fontFamily:"'Crimson Pro',serif" }}>↺ Sync from Build</button>
+          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+            <button onClick={syncFromBuild}
+              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                fontFamily:"'Crimson Pro',serif" }}>↺ Sync from Build</button>
+            <button onClick={addManualToLeft}
+              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
+          </div>
           <div />
           {/* Add item — floating picker */}
           <div style={{ position:'relative' }}>
@@ -1854,6 +1919,13 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
               </div>
             )}
           </div>
+          <button onClick={() => updateGcItems({ right: [...gcItems.right, {
+              id: `manual_${Date.now()}`, itemName: 'Manual Item',
+              itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [],
+              rangeMode: false, isManual: true }]})}
+            style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+              padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+              fontFamily:"'Crimson Pro',serif", marginTop:3 }}>+ Add Manual</button>
         </div>
 
         {/* Paired rows */}
@@ -1890,10 +1962,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                         </div>
                         <div style={{ textAlign:'center', fontWeight:700, fontSize:12,
                           color: d.delta > 0 ? C.green : d.delta < 0 ? C.danger : C.inkMid }}>
-                          {d.deltaMin === d.deltaMax
-                            ? `${d.deltaMin >= 0 ? '+' : ''}${d.deltaMin}`
-                            : `${d.deltaMin >= 0 ? '+' : ''}${d.deltaMin} – ${d.deltaMax >= 0 ? '+' : ''}${d.deltaMax}`
-                          }
+                          {d.delta > 0 ? '+' : ''}{d.delta}
                         </div>
                       </div>
                     ))
@@ -2171,6 +2240,7 @@ function BuildPlanner() {
       steppers: ke.steppers ?? {},
     })),
     rangeMode:   item.rangeMode   ?? false,
+    isManual:    item.isManual    ?? false,
   });
   const normaliseGcItems = gc => ({
     left:  (gc?.left  ?? []).map(normaliseGcItem),
@@ -2733,7 +2803,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.9</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.10</div>
           </div>
         </div>
         )}
