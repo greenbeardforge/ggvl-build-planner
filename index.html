@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.10</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.11</div>
           </div>
         </div>
       )}
@@ -1880,8 +1880,8 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                 fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
           </div>
           <div />
-          {/* Add item — floating picker */}
-          <div style={{ position:'relative' }}>
+          {/* Add item — floating picker + manual */}
+          <div style={{ position:'relative', display:'flex', flexDirection:'column', gap:3 }}>
             <div style={{ display:'flex', alignItems:'center', gap:3 }}>
               <input value={addQuery}
                 onChange={e => searchAdd(e.target.value)}
@@ -1918,14 +1918,14 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                 ))}
               </div>
             )}
+            <button onClick={() => updateGcItems({ right: [...gcItems.right, {
+                id: `manual_${Date.now()}`, itemName: 'Manual Item',
+                itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [],
+                rangeMode: false, isManual: true }]})}
+              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
           </div>
-          <button onClick={() => updateGcItems({ right: [...gcItems.right, {
-              id: `manual_${Date.now()}`, itemName: 'Manual Item',
-              itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [],
-              rangeMode: false, isManual: true }]})}
-            style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-              padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
-              fontFamily:"'Crimson Pro',serif", marginTop:3 }}>+ Add Manual</button>
         </div>
 
         {/* Paired rows */}
@@ -2803,7 +2803,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.10</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.11</div>
           </div>
         </div>
         )}
