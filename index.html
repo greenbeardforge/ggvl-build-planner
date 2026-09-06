@@ -177,7 +177,7 @@ const C = {
   accent:     '#c8973a', glow: '#e8b86d',
   parchment:  'var(--parchment)', parchMid: 'var(--parchment-mid)', parchDark: 'var(--parchment-dark)',
   ink:        'var(--ink)', inkMid: 'var(--ink-mid)', inkLight: 'var(--ink-light)',
-  red:        'var(--red-danger)', danger: '#e05050', green: '#27AE60', blue: '#1e3a6e',
+  red:        'var(--red-danger)', danger: '#e05050', decrease: '#c05050', green: '#27AE60', blue: '#1e3a6e',
   lwRow:      'var(--parchment-row)', tinkRow: 'var(--parchment-row)', wwRow: 'var(--parchment-row)',
 };
 
@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.12</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.13</div>
           </div>
         </div>
       )}
@@ -1329,22 +1329,25 @@ const SkillRow = ({ skill, entries }) => {
 
 // ── Gear Comparison helpers ────────────────────────────────────────────────────
 function getPositiveRatings(item) {
+  return getAllRatings(item).filter(r => r.flat ? r.val > 0 : r.sign > 0);
+}
+
+function getAllRatings(item) {
   const results = [];
-  // Skill ratings — dice-based (d4s)
+  // Skill ratings — dice-based (d4s), positive and negative
   ['sr1','sr2','sr3','sr4'].forEach(k => {
     if (!item[k]) return;
     const p = parseSkillLine(item[k]);
-    if (p && p.sign > 0) results.push({ label: p.skill, dice: p.dice, flat: false });
+    if (p) results.push({ label: p.skill, dice: p.dice, sign: p.sign, flat: false });
   });
-  // Additional ratings — flat values, stored as {label, flat:true, val:N}
+  // Additional ratings — flat values
   ['caster','ki','deflection','evasion','defense'].forEach(k => {
     if (!item[k]) return;
     item[k].split('\n').filter(Boolean).forEach(line => {
       const m = line.match(/([+-]?\d+)(?:d4)?$/);
       if (!m) return;
       const val = parseInt(m[1], 10);
-      if (val <= 0) return;
-      // Label: everything before the final number, trimmed
+      if (val === 0) return;
       const label = line.replace(/\s*[+-]?\d+(?:d4)?$/, '').trim();
       results.push({ label, flat: true, val });
     });
@@ -1395,12 +1398,17 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
 
   const stepperVal = label => {
     const rating = (item.itemRatings ?? []).find(r => r.label === label);
-    return item.steppers[label] ?? (rating?.flat ? rating.val : (rating?.dice ?? 1));
+    if (!rating) return (item.steppers ?? {})[label] ?? 1;
+    if (rating.flat) return (item.steppers ?? {})[label] ?? rating.val;
+    const sign = rating.sign ?? 1;
+    return (item.steppers ?? {})[label] ?? (sign > 0 ? rating.dice : -rating.dice);
   };
   const setStepperVal = (label, v) => {
     const rating = (item.itemRatings ?? []).find(r => r.label === label);
-    const min = rating?.flat ? 1 : (rating?.dice ?? 1);
-    const max = rating?.flat ? 99 : (rating?.dice * 4 ?? 20);
+    const isNeg = rating && !rating.flat && (rating.sign ?? 1) < 0;
+    const absMax = rating?.flat ? 99 : ((rating?.dice ?? 1) * 4);
+    const min = isNeg ? -absMax : (rating?.flat ? 1 : (rating?.dice ?? 1));
+    const max = isNeg ? -(rating?.dice ?? 1) : absMax;
     onUpdate({ steppers: { ...item.steppers, [label]: Math.max(min, Math.min(max, v)) } });
   };
 
@@ -1441,14 +1449,18 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
   };
 
   const stepBtn = (onClick, lbl, variant) => {
-    const isMw = variant === 'mw';
+    const isMw  = variant === 'mw';
+    const isNeg = variant === 'neg';
     return (
-      <button onClick={onClick} style={{ background:'none', border:`1px solid ${isMw ? '#8aacc0' : C.parchDark}`, borderRadius:3,
+      <button onClick={onClick} style={{ background:'none',
+        border:`1px solid ${isMw ? '#8aacc0' : C.parchDark}`, borderRadius:3,
         width:18, height:18, cursor:'pointer', fontSize:13, lineHeight:1,
         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
         ...(isMw
           ? { background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }
-          : { color:C.green, fontWeight:700 })
+          : isNeg
+            ? { color:C.decrease, fontWeight:700 }
+            : { color:C.green, fontWeight:700 })
       }}>{lbl}</button>
     );
   };
@@ -1513,41 +1525,49 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
 
       {/* Ratings rows */}
       <div style={{ padding:'3px 6px 4px' }}>
-        {(item.itemRatings ?? []).map((r, idx) => (
-          <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
-            <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
-            {r.flat ? (
-              // Flat rating — always show stepper, no range mode
-              <div style={{ display:'flex', alignItems:'center', gap:2 }}>
-                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
-                <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
-                  +{stepperVal(r.label)}
-                </span>
-                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
-                {item.isManual && cancelBtn(() => removeRating(idx), false)}
+        {(item.itemRatings ?? [])
+          .filter(r => {
+            // Right col Range/Maxed: show positive only
+            if (side === 'right' && (rangeMode === 'range' || rangeMode === 'maxed')) {
+              return r.flat ? r.val > 0 : (r.sign ?? 1) > 0;
+            }
+            return true; // left col and right Rolled: show all
+          })
+          .map((r, idx) => {
+            const isNeg = !r.flat && (r.sign ?? 1) < 0;
+            const valColor = isNeg ? C.decrease : C.green;
+            return (
+              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
+                <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
+                {r.flat ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−', isNeg ? 'neg' : undefined)}
+                    <span style={{ color:valColor, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
+                      {stepperVal(r.label) >= 0 ? '+' : ''}{stepperVal(r.label)}
+                    </span>
+                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+', isNeg ? 'neg' : undefined)}
+                    {item.isManual && cancelBtn(() => removeRating(idx), false)}
+                  </div>
+                ) : rangeMode === 'range' ? (
+                  <span style={{ color:valColor, fontWeight:700, fontSize:12 }}>
+                    +{r.dice}–+{r.dice * 4}
+                  </span>
+                ) : rangeMode === 'maxed' ? (
+                  <span style={{ color:valColor, fontWeight:700, fontSize:12 }}>
+                    +{r.dice * 4}
+                  </span>
+                ) : (
+                  <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−', isNeg ? 'neg' : undefined)}
+                    <span style={{ color:valColor, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
+                      {stepperVal(r.label) >= 0 ? '+' : ''}{stepperVal(r.label)}
+                    </span>
+                    {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+', isNeg ? 'neg' : undefined)}
+                  </div>
+                )}
               </div>
-            ) : rangeMode === 'range' ? (
-              // Dice rating — range display
-              <span style={{ color:C.green, fontWeight:700, fontSize:12 }}>
-                +{r.dice}–+{r.dice * 4}
-              </span>
-            ) : rangeMode === 'maxed' ? (
-              // Dice rating — max display
-              <span style={{ color:C.green, fontWeight:700, fontSize:12 }}>
-                +{r.dice * 4}
-              </span>
-            ) : (
-              // Dice rating — rolled (stepper)
-              <div style={{ display:'flex', alignItems:'center', gap:2 }}>
-                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
-                <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
-                  +{stepperVal(r.label)}
-                </span>
-                {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
-              </div>
-            )}
-          </div>
-        ))}
+            );
+          })}
 
         {/* MW entries */}
         {(item.mwEntries ?? []).map((e, idx) => (
@@ -1697,9 +1717,10 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
   };
 
   const makeItem = (catalogueItem, rangeMode='rolled') => {
-    const ratings = getPositiveRatings(catalogueItem);
+    // Always store all ratings; display filtered by rangeMode in GearItemCard
+    const ratings = getAllRatings(catalogueItem);
     const steppers = {};
-    ratings.forEach(r => { steppers[r.label] = r.dice; });
+    ratings.forEach(r => { steppers[r.label] = r.flat ? r.val : (r.sign > 0 ? r.dice : -r.dice); });
     return { id: String(Date.now() + Math.random()), itemName: catalogueItem.name,
       itemRatings: ratings, steppers, mwEntries: [], kitEntries: [], rangeMode };
   };
@@ -1841,13 +1862,13 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
       if (r.flat) {
         base = r.val ?? 0;
       } else if (item.rangeMode === 'rolled') {
-        base = (item.steppers ?? {})[label] ?? r.dice;
+        base = (item.steppers ?? {})[label] ?? ((r.sign ?? 1) > 0 ? r.dice : -r.dice);
       } else if (item.rangeMode === 'maxed') {
-        base = r.dice * 4;
+        base = (r.sign ?? 1) > 0 ? r.dice * 4 : 0;
       } else {
-        base = useExpertsTool
-          ? Math.floor(r.dice * 4 * EXPERTS_TOOL_PCT)
-          : r.dice * 4;
+        // 'range' — positives use Expert's Tool 75%; negatives excluded
+        if ((r.sign ?? 1) < 0) { base = 0; }
+        else { base = useExpertsTool ? Math.floor(r.dice * 4 * EXPERTS_TOOL_PCT) : r.dice * 4; }
       }
     }
     return base + (mw ? (mw.val ?? 0) : 0) + kitTotal;
@@ -1892,7 +1913,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
             <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
               color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Delta</div>
             <div style={{ fontSize:9, color:C.inkLight, textAlign:'center', marginTop:2 }}>
-              * Expert's Tool
+              * 75% max<br/>(Expert's Tool floor)
             </div>
           </div>
           {colHdr('Comparison', 'linear-gradient(135deg,#2a1a4a 0%,#3a2a6a 100%)', '#b8a8d8')}
@@ -2063,11 +2084,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                     <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
                     <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.leftTotal}</span>
                   </div>
-                  <div style={{ textAlign:'center', fontSize:11, fontWeight:700,
-                    display:'flex', flexDirection:'column', alignItems:'center', gap:1 }}>
-                    <span style={{ color: t.delta75 > 0 ? C.glow : t.delta75 < 0 ? C.danger : C.inkMid }}>
-                      {t.delta75 > 0 ? '+' : ''}{t.delta75}*
-                    </span>
+                  <div style={{ textAlign:'center', fontSize:13, fontWeight:700 }}>
                     <span style={{ color: t.deltaMax > 0 ? C.green : t.deltaMax < 0 ? C.danger : C.inkMid }}>
                       {t.deltaMax > 0 ? '+' : ''}{t.deltaMax}
                     </span>
@@ -2850,7 +2867,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.12</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.13</div>
           </div>
         </div>
         )}
