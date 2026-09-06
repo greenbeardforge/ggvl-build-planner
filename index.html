@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.16</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.17</div>
           </div>
         </div>
       )}
@@ -1504,16 +1504,17 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
                 background:'transparent', border:'none', borderBottom:`1px solid ${C.parchDark}`,
                 outline:'none', minWidth:0, letterSpacing:'.02em' }} />
           : <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
-              letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+              minWidth:0 }}>
               {item.itemName || '—'}
             </span>
         }
         {side === 'right' && (
-          <div style={{ display:'flex', gap:3, flexShrink:0 }}>
+          <div style={{ display:'flex', gap:1, flexShrink:0 }}>
             {['Range','Rolled','Maxed'].map(mode => (
               <button key={mode} onClick={() => onUpdate({ rangeMode: mode.toLowerCase() })}
                 style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                  padding:'2px 6px', cursor:'pointer', fontSize:10, flexShrink:0,
+                  padding:'1px 4px', cursor:'pointer', fontSize:10, flexShrink:0,
                   fontFamily:"'Crimson Pro',serif",
                   color: rangeMode === mode.toLowerCase() ? C.green : C.inkLight,
                   fontWeight: rangeMode === mode.toLowerCase() ? 700 : 400 }}>
@@ -1551,9 +1552,9 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
             return (
               <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:13, minHeight:22 }}>
                 <span style={{ flex:1, color:C.inkMid }}>
-                  {r.label}
+                  <span style={{ fontSize:14 }}>{r.label}</span>
                   {!r.flat && (
-                    <span style={{ fontStyle:'italic' }}> ({isNeg ? '-' : '+'}{r.dice}d4)</span>
+                    <span style={{ fontStyle:'italic', fontSize:12 }}> ({isNeg ? '-' : '+'}{r.dice}d4)</span>
                   )}
                 </span>
                 {r.flat ? (
@@ -2904,7 +2905,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.16</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.17</div>
           </div>
         </div>
         )}
