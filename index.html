@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.14</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.15</div>
           </div>
         </div>
       )}
@@ -1854,7 +1854,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
   // Kit ratings always use full max (unaffected by Expert's Tool)
   // Flat ratings always exact. Rolled mode always uses actual stepper.
   const getItemSkillTotal = (item, label, useExpertsTool) => {
-    const r   = (item.itemRatings ?? []).find(r => r.label === label);
+    const ratings = (item.itemRatings ?? []).filter(r => r.label === label);
     const mw  = (item.mwEntries  ?? []).find(e => e.prop  === label);
     const kitTotal = (item.kitEntries ?? []).reduce((sum, ke) => {
       const kr = (ke.ratings ?? []).find(r => r.label === label);
@@ -1862,20 +1862,22 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
       const rolled = item.rangeMode === 'rolled';
       return sum + (rolled ? ((ke.steppers ?? {})[label] ?? kr.dice) : kr.dice * 4);
     }, 0);
-    let base = 0;
-    if (r) {
-      if (r.flat) {
-        base = r.val ?? 0;
-      } else if (item.rangeMode === 'rolled') {
-        base = (item.steppers ?? {})[label] ?? ((r.sign ?? 1) > 0 ? r.dice : -r.dice);
+    const base = ratings.reduce((sum, r) => {
+      if (r.flat) return sum + (r.val ?? 0);
+      const sign = r.sign ?? 1;
+      if (item.rangeMode === 'rolled') {
+        // Use stepper if set, otherwise default to signed dice value
+        const stepVal = (item.steppers ?? {})[label];
+        // For multiple entries with same label, steppers key is shared — use dice default
+        return sum + (stepVal !== undefined && ratings.length === 1 ? stepVal : (sign > 0 ? r.dice : -r.dice));
       } else if (item.rangeMode === 'maxed') {
-        base = (r.sign ?? 1) > 0 ? r.dice * 4 : 0;
+        return sum + (sign > 0 ? r.dice * 4 : 0);
       } else {
         // 'range' — positives use Expert's Tool 75%; negatives excluded
-        if ((r.sign ?? 1) < 0) { base = 0; }
-        else { base = useExpertsTool ? Math.floor(r.dice * 4 * EXPERTS_TOOL_PCT) : r.dice * 4; }
+        if (sign < 0) return sum;
+        return sum + (useExpertsTool ? Math.floor(r.dice * 4 * EXPERTS_TOOL_PCT) : r.dice * 4);
       }
-    }
+    }, 0);
     return base + (mw ? (mw.val ?? 0) : 0) + kitTotal;
   };
 
@@ -2068,7 +2070,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
             const right75     = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal(item, label, true),  0);
             const rightMax    = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal({ ...item, rangeMode: 'maxed' }, label, false), 0);
             return { label, leftTotal, right75, rightMax, delta75: right75 - leftTotal, deltaMax: rightMax - leftTotal };
-          }).filter(t => t.leftTotal > 0 || t.right75 > 0)
+          }).filter(t => t.leftTotal !== 0 || t.right75 !== 0)
             .sort((a, b) => Math.abs(b.deltaMax) - Math.abs(a.deltaMax));
           if (totals.length === 0) return null;
           return (
@@ -2087,7 +2089,9 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
                     padding:'2px 6px', background:C.parchDark, borderRadius:3 }}>
                     <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
-                    <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.leftTotal}</span>
+                    <span style={{ fontSize:13, fontWeight:700, color: t.leftTotal < 0 ? C.decrease : C.green }}>
+                      {t.leftTotal > 0 ? '+' : ''}{t.leftTotal}
+                    </span>
                   </div>
                   <div style={{ textAlign:'center', fontSize:13, fontWeight:700 }}>
                     <span style={{ color: t.deltaMax > 0 ? C.green : t.deltaMax < 0 ? C.danger : C.inkMid }}>
@@ -2097,7 +2101,9 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
                     padding:'2px 6px', background:C.parchDark, borderRadius:3 }}>
                     <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
-                    <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.right75}</span>
+                    <span style={{ fontSize:13, fontWeight:700, color: t.right75 < 0 ? C.decrease : C.green }}>
+                      {t.right75 > 0 ? '+' : ''}{t.right75}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -2872,7 +2878,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.14</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.15</div>
           </div>
         </div>
         )}
