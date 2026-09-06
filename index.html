@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.11</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.12</div>
           </div>
         </div>
       )}
@@ -1380,8 +1380,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
   const [addingRating,   setAddingRating]   = React.useState(false);
   const [ratingLabel,    setRatingLabel]    = React.useState('');
   const [ratingVal,      setRatingVal]      = React.useState(1);
-  const rangeMode = item.rangeMode ?? (side === 'right');
-  const setRangeMode = v => onUpdate({ rangeMode: typeof v === 'function' ? v(rangeMode) : v });
+  const rangeMode = typeof item.rangeMode === 'string' ? item.rangeMode : (side === 'right' ? 'range' : 'rolled');
 
   const confirmRating = () => {
     if (!ratingLabel.trim()) return;
@@ -1485,13 +1484,20 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
               {item.itemName || '—'}
             </span>
         }
-        <button onClick={() => setRangeMode(m => !m)}
-          style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-            padding:'1px 5px', cursor:'pointer', fontSize:10, flexShrink:0,
-            color: rangeMode ? C.green : C.inkMid, fontFamily:"'Crimson Pro',serif",
-            fontWeight: rangeMode ? 700 : 400 }}>
-          {rangeMode ? 'Range' : 'Rolled'}
-        </button>
+        {side === 'right' && (
+          <div style={{ display:'flex', gap:2, flexShrink:0 }}>
+            {['Range','Rolled','Maxed'].map(mode => (
+              <button key={mode} onClick={() => onUpdate({ rangeMode: mode.toLowerCase() })}
+                style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                  padding:'1px 4px', cursor:'pointer', fontSize:9, flexShrink:0,
+                  fontFamily:"'Crimson Pro',serif",
+                  color: rangeMode === mode.toLowerCase() ? C.green : C.inkLight,
+                  fontWeight: rangeMode === mode.toLowerCase() ? 700 : 400 }}>
+                {mode}
+              </button>
+            ))}
+          </div>
+        )}
         <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
           style={{ background:'none', border:`1px solid ${(addingMw || (item.mwEntries ?? []).length >= 1) ? C.parchDark : '#8aacc0'}`,
           borderRadius:3, padding:'1px 5px', fontSize:10, flexShrink:0, fontWeight:700,
@@ -1520,13 +1526,18 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
                 {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+')}
                 {item.isManual && cancelBtn(() => removeRating(idx), false)}
               </div>
-            ) : rangeMode ? (
-              // Dice rating in range mode
+            ) : rangeMode === 'range' ? (
+              // Dice rating — range display
               <span style={{ color:C.green, fontWeight:700, fontSize:12 }}>
                 +{r.dice}–+{r.dice * 4}
               </span>
+            ) : rangeMode === 'maxed' ? (
+              // Dice rating — max display
+              <span style={{ color:C.green, fontWeight:700, fontSize:12 }}>
+                +{r.dice * 4}
+              </span>
             ) : (
-              // Dice rating in rolled mode
+              // Dice rating — rolled (stepper)
               <div style={{ display:'flex', alignItems:'center', gap:2 }}>
                 {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−')}
                 <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
@@ -1685,7 +1696,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     setAddResults(catalogueData.filter(i => i.name.toLowerCase().includes(q)).sort((a,b) => a.name.localeCompare(b.name)));
   };
 
-  const makeItem = (catalogueItem, rangeMode=false) => {
+  const makeItem = (catalogueItem, rangeMode='rolled') => {
     const ratings = getPositiveRatings(catalogueItem);
     const steppers = {};
     ratings.forEach(r => { steppers[r.label] = r.dice; });
@@ -1697,7 +1708,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     if (!addChoice) return;
     const cat = catalogueData.find(i => i.name === addChoice);
     if (!cat) return;
-    updateGcItems({ right: [...gcItems.right, makeItem(cat, true)] });
+    updateGcItems({ right: [...gcItems.right, makeItem(cat, 'range')] });
     setAddQuery(''); setAddResults([]); setAddChoice('');
   };
 
@@ -1706,7 +1717,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
       const cat = catalogueData.find(i => i.name === name);
       if (!cat) return { id: `sync_${idx}_${Date.now()}`, itemName: name,
         itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [], rangeMode: false };
-      const item = makeItem(cat, false);
+      const item = makeItem(cat, 'rolled');
       return { ...item, id: `sync_${idx}_${item.id}` };
     });
     updateGcItems({ left: leftItems });
@@ -1720,10 +1731,22 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
       steppers: {},
       mwEntries: [],
       kitEntries: [],
-      rangeMode: false,
+      rangeMode: 'rolled',
       isManual: true,
     };
     updateGcItems({ left: [...gcItems.left, item] });
+  };
+
+  const copyToComparison = () => {
+    const copied = gcItems.left.map(item => ({
+      ...item,
+      id: `copy_${Date.now()}_${Math.random()}`,
+      steppers: {},
+      mwEntries: [],
+      kitEntries: [],
+      rangeMode: 'range',
+    }));
+    updateGcItems({ right: copied });
   };
 
   const updateItem = (side, idx, patch) => {
@@ -1810,15 +1833,17 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     const kitTotal = (item.kitEntries ?? []).reduce((sum, ke) => {
       const kr = (ke.ratings ?? []).find(r => r.label === label);
       if (!kr) return sum;
-      const rolled = item.rangeMode === false;
+      const rolled = item.rangeMode === 'rolled';
       return sum + (rolled ? ((ke.steppers ?? {})[label] ?? kr.dice) : kr.dice * 4);
     }, 0);
     let base = 0;
     if (r) {
       if (r.flat) {
         base = r.val ?? 0;
-      } else if (item.rangeMode === false) {
+      } else if (item.rangeMode === 'rolled') {
         base = (item.steppers ?? {})[label] ?? r.dice;
+      } else if (item.rangeMode === 'maxed') {
+        base = r.dice * 4;
       } else {
         base = useExpertsTool
           ? Math.floor(r.dice * 4 * EXPERTS_TOOL_PCT)
@@ -1828,7 +1853,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     return base + (mw ? (mw.val ?? 0) : 0) + kitTotal;
   };
 
-  // getDelta: single per-skill delta for one item pair
+  // getDelta: returns delta75 (Expert's Tool 75%) and deltaMax (full max) per skill
   const getDelta = (leftItem, rightItem) => {
     if (!leftItem || !rightItem) return [];
     const allLabels = [...new Set([
@@ -1839,10 +1864,12 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
       ...(rightItem.mwEntries   ?? []).map(e => e.prop),
       ...(rightItem.kitEntries  ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
     ])];
-    return allLabels.map(label => ({
-      label,
-      delta: getItemSkillTotal(rightItem, label, true) - getItemSkillTotal(leftItem, label, false),
-    })).filter(d => d.delta !== 0);
+    return allLabels.map(label => {
+      const leftVal   = getItemSkillTotal(leftItem,  label, false);
+      const right75   = getItemSkillTotal(rightItem, label, true);   // 75% Expert's Tool
+      const rightMax  = getItemSkillTotal({ ...rightItem, rangeMode: 'maxed' }, label, false); // full max
+      return { label, delta75: right75 - leftVal, deltaMax: rightMax - leftVal };
+    }).filter(d => d.delta75 !== 0 || d.deltaMax !== 0);
   };
 
   return (
@@ -1861,9 +1888,13 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
         {/* Column headers */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:6 }}>
           {colHdr('Current Gear', 'linear-gradient(135deg,#1a3a25 0%,#2a5a35 100%)', '#a8d4b0')}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center',
-            fontFamily:"'Cinzel',serif", fontSize:10, fontWeight:700, color:C.inkLight,
-            letterSpacing:'.05em', textTransform:'uppercase' }}>Delta</div>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+            <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+              color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Delta</div>
+            <div style={{ fontSize:9, color:C.inkLight, textAlign:'center', marginTop:2 }}>
+              * Expert's Tool
+            </div>
+          </div>
           {colHdr('Comparison', 'linear-gradient(135deg,#2a1a4a 0%,#3a2a6a 100%)', '#b8a8d8')}
         </div>
 
@@ -1878,6 +1909,10 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
                 padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
                 fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
+            <button onClick={copyToComparison}
+              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                fontFamily:"'Crimson Pro',serif" }}>⇒ Copy to Comparison</button>
           </div>
           <div />
           {/* Add item — floating picker + manual */}
@@ -1921,7 +1956,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
             <button onClick={() => updateGcItems({ right: [...gcItems.right, {
                 id: `manual_${Date.now()}`, itemName: 'Manual Item',
                 itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [],
-                rangeMode: false, isManual: true }]})}
+                rangeMode: 'range', isManual: true }]})}
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
                 padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
                 fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
@@ -1960,9 +1995,15 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {d.label}
                         </div>
-                        <div style={{ textAlign:'center', fontWeight:700, fontSize:12,
-                          color: d.delta > 0 ? C.green : d.delta < 0 ? C.danger : C.inkMid }}>
-                          {d.delta > 0 ? '+' : ''}{d.delta}
+                        <div style={{ textAlign:'center', fontSize:11, fontWeight:700,
+                          display:'flex', justifyContent:'center', gap:3, flexWrap:'wrap' }}>
+                          <span style={{ color: d.delta75 > 0 ? C.glow : d.delta75 < 0 ? C.danger : C.inkMid }}>
+                            {d.delta75 > 0 ? '+' : ''}{d.delta75}*
+                          </span>
+                          <span style={{ color:C.inkLight }}>/</span>
+                          <span style={{ color: d.deltaMax > 0 ? C.green : d.deltaMax < 0 ? C.danger : C.inkMid }}>
+                            {d.deltaMax > 0 ? '+' : ''}{d.deltaMax}
+                          </span>
                         </div>
                       </div>
                     ))
@@ -1997,11 +2038,12 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
             ]),
           ])];
           const totals = allLabels.map(label => {
-            const leftTotal  = gcItems.left.reduce((sum, item)  => sum + getItemSkillTotal(item,  label, false), 0);
-            const rightTotal = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal(item, label, true),  0);
-            return { label, leftTotal, rightTotal, delta: rightTotal - leftTotal };
-          }).filter(t => t.leftTotal > 0 || t.rightTotal > 0)
-            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+            const leftTotal   = gcItems.left.reduce((sum, item)  => sum + getItemSkillTotal(item,  label, false), 0);
+            const right75     = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal(item, label, true),  0);
+            const rightMax    = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal({ ...item, rangeMode: 'maxed' }, label, false), 0);
+            return { label, leftTotal, right75, rightMax, delta75: right75 - leftTotal, deltaMax: rightMax - leftTotal };
+          }).filter(t => t.leftTotal > 0 || t.right75 > 0)
+            .sort((a, b) => Math.abs(b.deltaMax) - Math.abs(a.deltaMax));
           if (totals.length === 0) return null;
           return (
             <div style={{ marginTop:8, borderTop:`2px solid ${C.parchDark}`, paddingTop:8 }}>
@@ -2021,14 +2063,19 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                     <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
                     <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.leftTotal}</span>
                   </div>
-                  <div style={{ textAlign:'center', fontWeight:700, fontSize:13,
-                    color: t.delta > 0 ? C.green : t.delta < 0 ? C.danger : C.inkMid }}>
-                    {t.delta > 0 ? '+' : ''}{t.delta}
+                  <div style={{ textAlign:'center', fontSize:11, fontWeight:700,
+                    display:'flex', flexDirection:'column', alignItems:'center', gap:1 }}>
+                    <span style={{ color: t.delta75 > 0 ? C.glow : t.delta75 < 0 ? C.danger : C.inkMid }}>
+                      {t.delta75 > 0 ? '+' : ''}{t.delta75}*
+                    </span>
+                    <span style={{ color: t.deltaMax > 0 ? C.green : t.deltaMax < 0 ? C.danger : C.inkMid }}>
+                      {t.deltaMax > 0 ? '+' : ''}{t.deltaMax}
+                    </span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
                     padding:'2px 6px', background:C.parchDark, borderRadius:3 }}>
                     <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
-                    <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.rightTotal}</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.green }}>+{t.right75}</span>
                   </div>
                 </div>
               ))}
@@ -2239,7 +2286,7 @@ function BuildPlanner() {
       ratings:  ke.ratings  ?? [],
       steppers: ke.steppers ?? {},
     })),
-    rangeMode:   item.rangeMode   ?? false,
+    rangeMode:   typeof item.rangeMode === 'string' ? item.rangeMode : (item.rangeMode ? 'range' : 'rolled'),
     isManual:    item.isManual    ?? false,
   });
   const normaliseGcItems = gc => ({
@@ -2803,7 +2850,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.11</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.12</div>
           </div>
         </div>
         )}
