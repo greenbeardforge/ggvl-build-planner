@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.17</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.18</div>
           </div>
         </div>
       )}
@@ -1495,45 +1495,48 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         background:C.parchMid, cursor:'grab' }}>
 
       {/* Item name row */}
-      <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 8px',
-        borderBottom:`1px solid ${C.parchDark}` }}>
-        <span style={{ fontSize:12, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
-        {item.isManual
-          ? <input value={item.itemName} onChange={e => onUpdate({ itemName: e.target.value })}
-              style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
-                background:'transparent', border:'none', borderBottom:`1px solid ${C.parchDark}`,
-                outline:'none', minWidth:0, letterSpacing:'.02em' }} />
-          : <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
-              letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-              minWidth:0 }}>
-              {item.itemName || '—'}
-            </span>
-        }
-        {side === 'right' && (
-          <div style={{ display:'flex', gap:1, flexShrink:0 }}>
-            {['Range','Rolled','Maxed'].map(mode => (
-              <button key={mode} onClick={() => onUpdate({ rangeMode: mode.toLowerCase() })}
-                style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                  padding:'1px 4px', cursor:'pointer', fontSize:10, flexShrink:0,
-                  fontFamily:"'Crimson Pro',serif",
-                  color: rangeMode === mode.toLowerCase() ? C.green : C.inkLight,
-                  fontWeight: rangeMode === mode.toLowerCase() ? 700 : 400 }}>
-                {mode}
-              </button>
-            ))}
-          </div>
-        )}
-        <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
-          style={{ background:'none', border:`1px solid ${(addingMw || (item.mwEntries ?? []).length >= 1) ? C.parchDark : '#8aacc0'}`,
-          borderRadius:3, padding:'2px 7px', fontSize:11, flexShrink:0, fontWeight:700,
-          cursor: (addingMw || (item.mwEntries ?? []).length >= 1) ? 'default' : 'pointer',
-          opacity: (addingMw || (item.mwEntries ?? []).length >= 1) ? 0.35 : 1,
-          background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>+MW</button>
-        <button onClick={() => setAddingKit(true)} style={{ background:'none', border:`1px solid ${C.parchDark}`,
-          borderRadius:3, padding:'2px 7px', cursor:'pointer', fontSize:11, color:C.inkMid, flexShrink:0,
-          fontFamily:"'Crimson Pro',serif", display: addingKit ? 'none' : 'flex' }}>+Kit</button>
-        <button onClick={onRemove} style={{ background:'none', border:'none', cursor:'pointer',
-          color:C.inkLight, fontSize:14, lineHeight:1, flexShrink:0, padding:'0 3px' }}>×</button>
+      <div style={{ padding:'5px 8px', borderBottom:`1px solid ${C.parchDark}` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+          <span style={{ fontSize:12, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
+          {item.isManual
+            ? <input value={item.itemName} onChange={e => onUpdate({ itemName: e.target.value })}
+                style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
+                  background:'transparent', border:'none', borderBottom:`1px solid ${C.parchDark}`,
+                  outline:'none', minWidth:0, letterSpacing:'.02em' }} />
+            : <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
+                letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                minWidth:0 }}>
+                {item.itemName || '—'}
+              </span>
+          }
+          <button onClick={onRemove} style={{ background:'none', border:'none', cursor:'pointer',
+            color:C.inkLight, fontSize:14, lineHeight:1, flexShrink:0, padding:'0 3px' }}>×</button>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:4, marginTop:3 }}>
+          {side === 'right' && (
+            <div style={{ display:'flex', gap:1, flexShrink:0, marginRight:'auto' }}>
+              {['Range','Rolled','Maxed'].map(mode => (
+                <button key={mode} onClick={() => onUpdate({ rangeMode: mode.toLowerCase() })}
+                  style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                    padding:'1px 4px', cursor:'pointer', fontSize:10, flexShrink:0,
+                    fontFamily:"'Crimson Pro',serif",
+                    color: rangeMode === mode.toLowerCase() ? C.green : C.inkLight,
+                    fontWeight: rangeMode === mode.toLowerCase() ? 700 : 400 }}>
+                  {mode}
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
+            style={{ background:'none', border:`1px solid ${(addingMw || (item.mwEntries ?? []).length >= 1) ? C.parchDark : '#8aacc0'}`,
+            borderRadius:3, padding:'2px 7px', fontSize:11, flexShrink:0, fontWeight:700,
+            cursor: (addingMw || (item.mwEntries ?? []).length >= 1) ? 'default' : 'pointer',
+            opacity: (addingMw || (item.mwEntries ?? []).length >= 1) ? 0.35 : 1,
+            background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>+MW</button>
+          <button onClick={() => setAddingKit(true)} style={{ background:'none', border:`1px solid ${C.parchDark}`,
+            borderRadius:3, padding:'2px 7px', cursor:'pointer', fontSize:11, color:C.inkMid, flexShrink:0,
+            fontFamily:"'Crimson Pro',serif", display: addingKit ? 'none' : 'flex' }}>+Kit</button>
+        </div>
       </div>
 
       {/* Ratings rows */}
@@ -2905,7 +2908,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.17</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.18</div>
           </div>
         </div>
         )}
