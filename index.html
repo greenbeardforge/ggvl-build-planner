@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.18</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.19</div>
           </div>
         </div>
       )}
@@ -1944,7 +1944,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
         borderTop:'none', borderRadius:'0 0 5px 5px', padding:'8px' }}>
 
         {/* Column headers */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr', gap:6, marginBottom:6 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)', gap:6, marginBottom:6 }}>
           {colHdr('Current Gear', 'linear-gradient(135deg,#1a3a25 0%,#2a5a35 100%)', '#a8d4b0')}
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
             <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
@@ -1957,7 +1957,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
         </div>
 
         {/* Sync button + add row */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr', gap:6, marginBottom:6 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)', gap:6, marginBottom:6 }}>
           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
             <button onClick={syncFromBuild}
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
@@ -2033,7 +2033,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           const rightItem = gcItems.right[idx] || null;
           const deltas    = getDelta(leftItem, rightItem);
           return (
-            <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr',
+            <div key={idx} style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)',
               gap:6, marginBottom:4, alignItems:'start' }}>
               {/* Left card */}
               <div onDragOver={onDragOver} onDrop={onDrop('left', idx)}>
@@ -2105,7 +2105,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           if (totals.length === 0) return null;
           return (
             <div style={{ marginTop:8, borderTop:`2px solid ${C.parchDark}`, paddingTop:8 }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr', gap:6, marginBottom:4 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)', gap:6, marginBottom:4 }}>
                 <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
                   color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
                 <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
@@ -2114,7 +2114,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                   color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
               </div>
               {totals.map(t => (
-                <div key={t.label} style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr',
+                <div key={t.label} style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)',
                   gap:6, marginBottom:3, alignItems:'center' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
                     padding:'3px 7px', background:C.parchDark, borderRadius:3 }}>
@@ -2908,7 +2908,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.18</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.19</div>
           </div>
         </div>
         )}
