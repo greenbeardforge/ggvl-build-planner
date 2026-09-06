@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.15</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.16</div>
           </div>
         </div>
       )}
@@ -1386,14 +1386,15 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
   const [kitResults,     setKitResults]     = React.useState([]);
   const [kitChoice,      setKitChoice]      = React.useState('');
   const [addingRating,   setAddingRating]   = React.useState(false);
-  const [ratingLabel,    setRatingLabel]    = React.useState('');
+  const [ratingLabel,    setRatingLabel]    = React.useState(MW_OPTIONS[0] || '');
   const [ratingVal,      setRatingVal]      = React.useState(1);
+  const [mwOtherLabel,   setMwOtherLabel]   = React.useState('');
   const rangeMode = typeof item.rangeMode === 'string' ? item.rangeMode : (side === 'right' ? 'range' : 'rolled');
 
   const confirmRating = () => {
-    if (!ratingLabel.trim()) return;
-    onUpdate({ itemRatings: [...(item.itemRatings ?? []), { label: ratingLabel.trim(), flat: true, val: ratingVal }] });
-    setAddingRating(false); setRatingLabel(''); setRatingVal(1);
+    if (!ratingLabel) return;
+    onUpdate({ itemRatings: [...(item.itemRatings ?? []), { label: ratingLabel, flat: true, val: ratingVal }] });
+    setAddingRating(false); setRatingLabel(MW_OPTIONS[0] || ''); setRatingVal(1);
   };
   const removeRating = idx => onUpdate({ itemRatings: (item.itemRatings ?? []).filter((_,i) => i !== idx) });
 
@@ -1418,6 +1419,12 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
   };
 
   const confirmMw = () => {
+    if (mwProp === '__other__') {
+      if (!mwOtherLabel.trim()) return;
+      onUpdate({ mwEntries: [...item.mwEntries, { prop: '__other__', label: mwOtherLabel.trim(), val: 0, refOnly: true }] });
+      setAddingMw(false); setMwOtherLabel('');
+      return;
+    }
     if (!mwProp) return;
     onUpdate({ mwEntries: [...item.mwEntries, { prop: mwProp, val: mwVal }] });
     setAddingMw(false); setMwVal(1);
@@ -1459,7 +1466,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
     return (
       <button onClick={onClick} style={{ background:'none',
         border:`1px solid ${isMw ? '#8aacc0' : C.parchDark}`, borderRadius:3,
-        width:18, height:18, cursor:'pointer', fontSize:13, lineHeight:1,
+        width:20, height:20, cursor:'pointer', fontSize:14, lineHeight:1,
         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
         ...(isMw
           ? { background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }
@@ -1472,11 +1479,11 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
 
   const mwConfirmBtn = (onClick) => (
     <button onClick={onClick} style={{ background:'none', border:'1px solid #8aacc0', borderRadius:3,
-      padding:'1px 6px', cursor:'pointer', fontSize:12, flexShrink:0,
+      padding:'2px 8px', cursor:'pointer', fontSize:13, flexShrink:0,
       background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }}>✓</button>
   );
   const cancelBtn = (onClick, isMw) => (
-    <button onClick={onClick} style={{ background:'none', border:'none', cursor:'pointer', fontSize:14, flexShrink:0,
+    <button onClick={onClick} style={{ background:'none', border:'none', cursor:'pointer', fontSize:15, flexShrink:0,
       ...(isMw
         ? { background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }
         : { color:C.inkMid }) }}>×</button>
@@ -1488,25 +1495,25 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         background:C.parchMid, cursor:'grab' }}>
 
       {/* Item name row */}
-      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 6px',
+      <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 8px',
         borderBottom:`1px solid ${C.parchDark}` }}>
-        <span style={{ fontSize:11, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
+        <span style={{ fontSize:12, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
         {item.isManual
           ? <input value={item.itemName} onChange={e => onUpdate({ itemName: e.target.value })}
-              style={{ flex:1, fontSize:12, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
+              style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
                 background:'transparent', border:'none', borderBottom:`1px solid ${C.parchDark}`,
                 outline:'none', minWidth:0, letterSpacing:'.02em' }} />
-          : <span style={{ flex:1, fontSize:12, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
+          : <span style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
               letterSpacing:'.02em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
               {item.itemName || '—'}
             </span>
         }
         {side === 'right' && (
-          <div style={{ display:'flex', gap:2, flexShrink:0 }}>
+          <div style={{ display:'flex', gap:3, flexShrink:0 }}>
             {['Range','Rolled','Maxed'].map(mode => (
               <button key={mode} onClick={() => onUpdate({ rangeMode: mode.toLowerCase() })}
                 style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                  padding:'1px 4px', cursor:'pointer', fontSize:9, flexShrink:0,
+                  padding:'2px 6px', cursor:'pointer', fontSize:10, flexShrink:0,
                   fontFamily:"'Crimson Pro',serif",
                   color: rangeMode === mode.toLowerCase() ? C.green : C.inkLight,
                   fontWeight: rangeMode === mode.toLowerCase() ? 700 : 400 }}>
@@ -1517,19 +1524,19 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         )}
         <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
           style={{ background:'none', border:`1px solid ${(addingMw || (item.mwEntries ?? []).length >= 1) ? C.parchDark : '#8aacc0'}`,
-          borderRadius:3, padding:'1px 5px', fontSize:10, flexShrink:0, fontWeight:700,
+          borderRadius:3, padding:'2px 7px', fontSize:11, flexShrink:0, fontWeight:700,
           cursor: (addingMw || (item.mwEntries ?? []).length >= 1) ? 'default' : 'pointer',
           opacity: (addingMw || (item.mwEntries ?? []).length >= 1) ? 0.35 : 1,
           background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>+MW</button>
         <button onClick={() => setAddingKit(true)} style={{ background:'none', border:`1px solid ${C.parchDark}`,
-          borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, color:C.inkMid, flexShrink:0,
+          borderRadius:3, padding:'2px 7px', cursor:'pointer', fontSize:11, color:C.inkMid, flexShrink:0,
           fontFamily:"'Crimson Pro',serif", display: addingKit ? 'none' : 'flex' }}>+Kit</button>
         <button onClick={onRemove} style={{ background:'none', border:'none', cursor:'pointer',
-          color:C.inkLight, fontSize:13, lineHeight:1, flexShrink:0, padding:'0 2px' }}>×</button>
+          color:C.inkLight, fontSize:14, lineHeight:1, flexShrink:0, padding:'0 3px' }}>×</button>
       </div>
 
       {/* Ratings rows */}
-      <div style={{ padding:'3px 6px 4px' }}>
+      <div style={{ padding:'4px 8px 6px' }}>
         {(item.itemRatings ?? [])
           .filter(r => {
             // Right col Range/Maxed: show positive only
@@ -1542,29 +1549,34 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
             const isNeg = !r.flat && (r.sign ?? 1) < 0;
             const valColor = isNeg ? C.decrease : C.green;
             return (
-              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
-                <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
+              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:13, minHeight:22 }}>
+                <span style={{ flex:1, color:C.inkMid }}>
+                  {r.label}
+                  {!r.flat && (
+                    <span style={{ fontStyle:'italic' }}> ({isNeg ? '-' : '+'}{r.dice}d4)</span>
+                  )}
+                </span>
                 {r.flat ? (
                   <div style={{ display:'flex', alignItems:'center', gap:2 }}>
                     {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−', isNeg ? 'neg' : undefined)}
-                    <span style={{ color:valColor, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
+                    <span style={{ color:valColor, fontWeight:700, minWidth:22, textAlign:'center', fontSize:13 }}>
                       {stepperVal(r.label) >= 0 ? '+' : ''}{stepperVal(r.label)}
                     </span>
                     {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+', isNeg ? 'neg' : undefined)}
                     {item.isManual && cancelBtn(() => removeRating(idx), false)}
                   </div>
                 ) : rangeMode === 'range' ? (
-                  <span style={{ color:valColor, fontWeight:700, fontSize:12 }}>
+                  <span style={{ color:valColor, fontWeight:700, fontSize:13 }}>
                     +{r.dice}–+{r.dice * 4}
                   </span>
                 ) : rangeMode === 'maxed' ? (
-                  <span style={{ color:valColor, fontWeight:700, fontSize:12 }}>
+                  <span style={{ color:valColor, fontWeight:700, fontSize:13 }}>
                     +{r.dice * 4}
                   </span>
                 ) : (
                   <div style={{ display:'flex', alignItems:'center', gap:2 }}>
                     {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) - 1), '−', isNeg ? 'neg' : undefined)}
-                    <span style={{ color:valColor, fontWeight:700, minWidth:20, textAlign:'center', fontSize:12 }}>
+                    <span style={{ color:valColor, fontWeight:700, minWidth:22, textAlign:'center', fontSize:13 }}>
                       {stepperVal(r.label) >= 0 ? '+' : ''}{stepperVal(r.label)}
                     </span>
                     {stepBtn(() => setStepperVal(r.label, stepperVal(r.label) + 1), '+', isNeg ? 'neg' : undefined)}
@@ -1576,10 +1588,10 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
 
         {/* MW entries */}
         {(item.mwEntries ?? []).map((e, idx) => (
-          <div key={idx} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
+          <div key={idx} style={{ display:'flex', alignItems:'center', gap:4, fontSize:13, minHeight:22 }}>
             <span style={{ flex:1, fontWeight:700,
               background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-              ★ {e.prop} +{e.val}
+              {e.refOnly ? <React.Fragment>★ {e.label}</React.Fragment> : <React.Fragment>★ {e.prop} +{e.val}</React.Fragment>}
             </span>
             {cancelBtn(() => removeMw(idx), true)}
           </div>
@@ -1589,7 +1601,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         {addingMw && (
           <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:3 }}>
             <select value={mwProp} onChange={e => setMwProp(e.target.value)}
-              style={{ flex:1, minWidth:0, fontSize:11, padding:'2px 4px', borderRadius:3,
+              style={{ flex:1, minWidth:0, fontSize:12, padding:'3px 5px', borderRadius:3,
                 border:`1px solid ${C.parchDark}`, fontFamily:"'Crimson Pro',serif" }}>
               <optgroup label="Skills">
                 {MW_SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1597,33 +1609,42 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
               <optgroup label="Ratings">
                 {MW_RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
               </optgroup>
+              <option value="__other__">— Other —</option>
             </select>
-            <div style={{ display:'flex', alignItems:'center', gap:2 }}>
-              {stepBtn(() => setMwVal(v => Math.max(1, v - 1)), '−', 'mw')}
-              <span style={{ minWidth:18, textAlign:'center', fontSize:12,
-                background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
-                fontWeight:700 }}>{mwVal}</span>
-              {stepBtn(() => setMwVal(v => Math.min(20, v + 1)), '+', 'mw')}
-            </div>
+            {mwProp === '__other__' ? (
+              <input value={mwOtherLabel} onChange={e => setMwOtherLabel(e.target.value)}
+                placeholder="Property name…"
+                style={{ flex:1, minWidth:0, fontSize:12, padding:'3px 6px', borderRadius:3,
+                  border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
+                  fontFamily:"'Crimson Pro',serif" }} />
+            ) : (
+              <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                {stepBtn(() => setMwVal(v => Math.max(1, v - 1)), '−', 'mw')}
+                <span style={{ minWidth:20, textAlign:'center', fontSize:13,
+                  background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
+                  fontWeight:700 }}>{mwVal}</span>
+                {stepBtn(() => setMwVal(v => Math.min(20, v + 1)), '+', 'mw')}
+              </div>
+            )}
             {mwConfirmBtn(confirmMw)}
-            {cancelBtn(() => { setAddingMw(false); setMwVal(1); }, true)}
+            {cancelBtn(() => { setAddingMw(false); setMwVal(1); setMwOtherLabel(''); }, true)}
           </div>
         )}
 
         {/* Kit entries */}
         {(item.kitEntries ?? []).map((ke, kidx) => (
           <div key={kidx} style={{ marginTop:2 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, minHeight:20 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:13, minHeight:22 }}>
               <span style={{ flex:1, color:C.inkMid, fontStyle:'italic' }}>{ke.kitName}</span>
               {cancelBtn(() => removeKit(kidx), false)}
             </div>
             {(ke.ratings ?? []).map(r => (
-              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11,
-                paddingLeft:8, minHeight:18 }}>
+              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12,
+                paddingLeft:10, minHeight:20 }}>
                 <span style={{ flex:1, color:C.inkMid }}>{r.label}</span>
                 <div style={{ display:'flex', alignItems:'center', gap:2 }}>
                   {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) - 1), '−')}
-                  <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:11 }}>
+                  <span style={{ color:C.green, fontWeight:700, minWidth:22, textAlign:'center', fontSize:12 }}>
                     +{ke.steppers[r.label] ?? r.dice}
                   </span>
                   {stepBtn(() => setKitStepper(kidx, r.label, (ke.steppers[r.label] ?? r.dice) + 1), '+')}
@@ -1639,7 +1660,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
             <div style={{ display:'flex', alignItems:'center', gap:3 }}>
               <input value={kitQuery} onChange={e => searchKits(e.target.value)}
                 placeholder="Search kit…"
-                style={{ flex:1, minWidth:0, fontSize:11, padding:'2px 6px', borderRadius:3,
+                style={{ flex:1, minWidth:0, fontSize:12, padding:'3px 7px', borderRadius:3,
                   border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
                   fontFamily:"'Crimson Pro',serif" }} />
               {mwConfirmBtn(confirmKit)}
@@ -1653,7 +1674,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
                 {kitResults.map(k => (
                   <div key={k.name}
                     onClick={() => { setKitChoice(k.name); setKitResults([]); setKitQuery(k.name); }}
-                    style={{ padding:'4px 8px', fontSize:11, color: kitChoice === k.name ? C.ink : C.inkMid,
+                    style={{ padding:'5px 9px', fontSize:12, color: kitChoice === k.name ? C.ink : C.inkMid,
                       background: kitChoice === k.name ? C.parchDark : 'transparent',
                       cursor:'pointer', fontFamily:"'Crimson Pro',serif",
                       borderBottom:`1px solid ${C.parchDark}` }}
@@ -1670,34 +1691,40 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         {/* Manual rating add row */}
         {item.isManual && addingRating && (
           <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:3 }}>
-            <input value={ratingLabel} onChange={e => setRatingLabel(e.target.value)}
-              placeholder="Rating name…"
-              style={{ flex:1, minWidth:0, fontSize:11, padding:'2px 6px', borderRadius:3,
-                border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
-                fontFamily:"'Crimson Pro',serif" }} />
+            <select value={ratingLabel} onChange={e => setRatingLabel(e.target.value)}
+              style={{ flex:1, minWidth:0, fontSize:12, padding:'3px 5px', borderRadius:3,
+                border:`1px solid ${C.parchDark}`, background:'var(--select-bg)', color:C.ink,
+                fontFamily:"'Crimson Pro',serif" }}>
+              <optgroup label="Skills">
+                {MW_SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
+              </optgroup>
+              <optgroup label="Ratings">
+                {MW_RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
+              </optgroup>
+            </select>
             <div style={{ display:'flex', alignItems:'center', gap:2 }}>
               {stepBtn(() => setRatingVal(v => Math.max(1, v - 1)), '−')}
-              <span style={{ color:C.green, fontWeight:700, minWidth:20, textAlign:'center', fontSize:11 }}>
+              <span style={{ color:C.green, fontWeight:700, minWidth:22, textAlign:'center', fontSize:12 }}>
                 +{ratingVal}
               </span>
               {stepBtn(() => setRatingVal(v => Math.min(99, v + 1)), '+')}
             </div>
             <button onClick={confirmRating} style={{ background:'none', border:`1px solid ${C.parchDark}`,
-              borderRadius:3, padding:'1px 6px', cursor:'pointer', fontSize:12,
+              borderRadius:3, padding:'2px 8px', cursor:'pointer', fontSize:13,
               color:C.green, fontWeight:700, flexShrink:0 }}>✓</button>
-            {cancelBtn(() => { setAddingRating(false); setRatingLabel(''); setRatingVal(1); }, false)}
+            {cancelBtn(() => { setAddingRating(false); setRatingLabel(MW_OPTIONS[0] || ''); setRatingVal(1); }, false)}
           </div>
         )}
         {item.isManual && !addingRating && (
           <button onClick={() => setAddingRating(true)}
             style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-              padding:'1px 6px', marginTop:3, cursor:'pointer', fontSize:10, color:C.inkMid,
+              padding:'2px 8px', marginTop:3, cursor:'pointer', fontSize:11, color:C.inkMid,
               fontFamily:"'Crimson Pro',serif" }}>+ Add Rating</button>
         )}
 
         {/* Empty state */}
         {(item.itemRatings ?? []).length === 0 && (item.mwEntries ?? []).length === 0 && (item.kitEntries ?? []).length === 0 && !item.isManual && (
-          <div style={{ color:C.inkLight, fontSize:11, fontStyle:'italic', padding:'2px 0' }}>No ratings</div>
+          <div style={{ color:C.inkLight, fontSize:12, fontStyle:'italic', padding:'2px 0' }}>No ratings</div>
         )}
       </div>
     </div>
@@ -1767,7 +1794,6 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     const copied = gcItems.left.map(item => ({
       ...item,
       id: `copy_${Date.now()}_${Math.random()}`,
-      steppers: {},
       mwEntries: [],
       kitEntries: [],
       rangeMode: 'range',
@@ -1829,8 +1855,8 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
   };
 
   const colHdr = (label, grad, color) => (
-    <div style={{ background:grad, padding:'5px 10px', fontFamily:"'Cinzel',serif",
-      fontSize:11, fontWeight:700, color, letterSpacing:'.06em', textTransform:'uppercase',
+    <div style={{ background:grad, padding:'6px 12px', fontFamily:"'Cinzel',serif",
+      fontSize:12, fontWeight:700, color, letterSpacing:'.06em', textTransform:'uppercase',
       display:'flex', alignItems:'center', justifyContent:'space-between' }}>
       <span>{label}</span>
     </div>
@@ -1855,7 +1881,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
   // Flat ratings always exact. Rolled mode always uses actual stepper.
   const getItemSkillTotal = (item, label, useExpertsTool) => {
     const ratings = (item.itemRatings ?? []).filter(r => r.label === label);
-    const mw  = (item.mwEntries  ?? []).find(e => e.prop  === label);
+    const mw  = (item.mwEntries  ?? []).find(e => e.prop === label && !e.refOnly);
     const kitTotal = (item.kitEntries ?? []).reduce((sum, ke) => {
       const kr = (ke.ratings ?? []).find(r => r.label === label);
       if (!kr) return sum;
@@ -1886,10 +1912,10 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     if (!leftItem || !rightItem) return [];
     const allLabels = [...new Set([
       ...(leftItem.itemRatings  ?? []).map(r => r.label),
-      ...(leftItem.mwEntries    ?? []).map(e => e.prop),
+      ...(leftItem.mwEntries    ?? []).filter(e => !e.refOnly).map(e => e.prop),
       ...(leftItem.kitEntries   ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
       ...(rightItem.itemRatings ?? []).map(r => r.label),
-      ...(rightItem.mwEntries   ?? []).map(e => e.prop),
+      ...(rightItem.mwEntries   ?? []).filter(e => !e.refOnly).map(e => e.prop),
       ...(rightItem.kitEntries  ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
     ])];
     return allLabels.map(label => {
@@ -1914,32 +1940,32 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
         borderTop:'none', borderRadius:'0 0 5px 5px', padding:'8px' }}>
 
         {/* Column headers */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:6 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr', gap:6, marginBottom:6 }}>
           {colHdr('Current Gear', 'linear-gradient(135deg,#1a3a25 0%,#2a5a35 100%)', '#a8d4b0')}
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-            <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+            <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
               color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Delta</div>
-            <div style={{ fontSize:9, color:C.inkLight, textAlign:'center', marginTop:2 }}>
-              * 75% max<br/>(Expert's Tool floor)
+            <div style={{ fontSize:11, color:C.glow, fontWeight:600, textAlign:'center', marginTop:2 }}>
+              ⚙ Expert's Tool<br/>(75% max)
             </div>
           </div>
           {colHdr('Comparison', 'linear-gradient(135deg,#2a1a4a 0%,#3a2a6a 100%)', '#b8a8d8')}
         </div>
 
         {/* Sync button + add row */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:6 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr', gap:6, marginBottom:6 }}>
           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
             <button onClick={syncFromBuild}
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                padding:'4px 10px', cursor:'pointer', fontSize:13, color:C.inkMid,
                 fontFamily:"'Crimson Pro',serif" }}>↺ Sync from Build</button>
             <button onClick={addManualToLeft}
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                padding:'4px 10px', cursor:'pointer', fontSize:13, color:C.inkMid,
                 fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
             <button onClick={copyToComparison}
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                padding:'4px 10px', cursor:'pointer', fontSize:13, color:C.inkMid,
                 fontFamily:"'Crimson Pro',serif" }}>⇒ Copy to Comparison</button>
           </div>
           <div />
@@ -1986,7 +2012,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                 itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [],
                 rangeMode: 'range', isManual: true }]})}
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                padding:'3px 8px', cursor:'pointer', fontSize:12, color:C.inkMid,
+                padding:'4px 10px', cursor:'pointer', fontSize:13, color:C.inkMid,
                 fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
           </div>
         </div>
@@ -2003,7 +2029,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           const rightItem = gcItems.right[idx] || null;
           const deltas    = getDelta(leftItem, rightItem);
           return (
-            <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr',
+            <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr',
               gap:6, marginBottom:4, alignItems:'start' }}>
               {/* Left card */}
               <div onDragOver={onDragOver} onDrop={onDrop('left', idx)}>
@@ -2015,18 +2041,18 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                 }
               </div>
               {/* Delta column */}
-              <div style={{ padding:'4px 2px', fontSize:12 }}>
+              <div style={{ padding:'4px 3px', fontSize:13 }}>
                 {deltas.length > 0
                   ? deltas.map(d => (
                       <div key={d.label} style={{ marginBottom:3 }}>
-                        <div style={{ fontSize:10, color:C.inkLight, textAlign:'center',
+                        <div style={{ fontSize:11, color:C.inkLight, textAlign:'center',
                           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {d.label}
                         </div>
-                        <div style={{ textAlign:'center', fontSize:11, fontWeight:700,
+                        <div style={{ textAlign:'center', fontSize:12, fontWeight:700,
                           display:'flex', justifyContent:'center', gap:3, flexWrap:'wrap' }}>
                           <span style={{ color: d.delta75 > 0 ? C.glow : d.delta75 < 0 ? C.danger : C.inkMid }}>
-                            {d.delta75 > 0 ? '+' : ''}{d.delta75}*
+                            {d.delta75 > 0 ? '+' : ''}{d.delta75}⚙
                           </span>
                           <span style={{ color:C.inkLight }}>/</span>
                           <span style={{ color: d.deltaMax > 0 ? C.green : d.deltaMax < 0 ? C.danger : C.inkMid }}>
@@ -2056,12 +2082,12 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           const allLabels = [...new Set([
             ...gcItems.left.flatMap(item => [
               ...(item.itemRatings ?? []).map(r => r.label),
-              ...(item.mwEntries ?? []).map(e => e.prop),
+              ...(item.mwEntries ?? []).filter(e => !e.refOnly).map(e => e.prop),
               ...(item.kitEntries ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
             ]),
             ...gcItems.right.flatMap(item => [
               ...(item.itemRatings ?? []).map(r => r.label),
-              ...(item.mwEntries ?? []).map(e => e.prop),
+              ...(item.mwEntries ?? []).filter(e => !e.refOnly).map(e => e.prop),
               ...(item.kitEntries ?? []).flatMap(ke => (ke.ratings ?? []).map(r => r.label)),
             ]),
           ])];
@@ -2075,33 +2101,33 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           if (totals.length === 0) return null;
           return (
             <div style={{ marginTop:8, borderTop:`2px solid ${C.parchDark}`, paddingTop:8 }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:6, marginBottom:4 }}>
-                <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr', gap:6, marginBottom:4 }}>
+                <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
                   color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
-                <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+                <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
                   color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Δ</div>
-                <div style={{ fontFamily:"'Cinzel',serif", fontSize:11, fontWeight:700,
+                <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
                   color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
               </div>
               {totals.map(t => (
-                <div key={t.label} style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr',
+                <div key={t.label} style={{ display:'grid', gridTemplateColumns:'1fr 92px 1fr',
                   gap:6, marginBottom:3, alignItems:'center' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                    padding:'2px 6px', background:C.parchDark, borderRadius:3 }}>
-                    <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
-                    <span style={{ fontSize:13, fontWeight:700, color: t.leftTotal < 0 ? C.decrease : C.green }}>
+                    padding:'3px 7px', background:C.parchDark, borderRadius:3 }}>
+                    <span style={{ fontSize:12, color:C.inkMid }}>{t.label}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color: t.leftTotal < 0 ? C.decrease : C.green }}>
                       {t.leftTotal > 0 ? '+' : ''}{t.leftTotal}
                     </span>
                   </div>
-                  <div style={{ textAlign:'center', fontSize:13, fontWeight:700 }}>
+                  <div style={{ textAlign:'center', fontSize:14, fontWeight:700 }}>
                     <span style={{ color: t.deltaMax > 0 ? C.green : t.deltaMax < 0 ? C.danger : C.inkMid }}>
                       {t.deltaMax > 0 ? '+' : ''}{t.deltaMax}
                     </span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                    padding:'2px 6px', background:C.parchDark, borderRadius:3 }}>
-                    <span style={{ fontSize:11, color:C.inkMid }}>{t.label}</span>
-                    <span style={{ fontSize:13, fontWeight:700, color: t.right75 < 0 ? C.decrease : C.green }}>
+                    padding:'3px 7px', background:C.parchDark, borderRadius:3 }}>
+                    <span style={{ fontSize:12, color:C.inkMid }}>{t.label}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color: t.right75 < 0 ? C.decrease : C.green }}>
                       {t.right75 > 0 ? '+' : ''}{t.right75}
                     </span>
                   </div>
@@ -2878,7 +2904,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.15</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.16</div>
           </div>
         </div>
         )}
