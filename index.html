@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.22</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.23</div>
           </div>
         </div>
       )}
@@ -1609,7 +1609,7 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
             </div>
           )}
           {side === 'left' && (
-            <Tooltip text={GC_TIPS.maxAll} wrapperStyle={{ marginRight:'auto' }}>
+            <Tooltip text={GC_TIPS.maxAll}>
               <button onClick={maxAllSteppers}
                 style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
                   padding:'1px 4px', cursor:'pointer', fontSize:10, flexShrink:0,
@@ -2098,11 +2098,13 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
             <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
               color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Delta</div>
-            <div onClick={toggleExpertsTool}
-              style={{ fontSize:11, color: expertsToolOn ? C.glow : C.inkLight, fontWeight:600,
-                textAlign:'center', marginTop:2, cursor:'pointer', opacity: expertsToolOn ? 1 : 0.5 }}>
-              ⚙ Expert's Tool<br/>(75% max)
-            </div>
+            <Tooltip text="Click to toggle showing the Expert's Tool 75% floor alongside the full max delta.">
+              <div onClick={toggleExpertsTool}
+                style={{ fontSize:11, color: expertsToolOn ? C.glow : C.inkLight, fontWeight:600,
+                  textAlign:'center', marginTop:2, cursor:'pointer', opacity: expertsToolOn ? 1 : 0.5 }}>
+                ⚙ Expert's Tool<br/>(75% max)
+              </div>
+            </Tooltip>
           </div>
           {colHdr('Comparison', 'linear-gradient(135deg,#2a1a4a 0%,#3a2a6a 100%)', '#b8a8d8')}
         </div>
@@ -2276,12 +2278,11 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
             ]),
           ])];
           const totals = allLabels.map(label => {
-            const leftTotal   = gcItems.left.reduce((sum, item)  => sum + getItemSkillTotal(item,  label, false), 0);
-            const right75     = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal(item, label, true),  0);
-            const rightMax    = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal({ ...item, rangeMode: 'maxed' }, label, false), 0);
-            return { label, leftTotal, right75, rightMax, delta75: right75 - leftTotal, deltaMax: rightMax - leftTotal };
-          }).filter(t => t.leftTotal !== 0 || t.right75 !== 0)
-            .sort((a, b) => Math.abs(b.deltaMax) - Math.abs(a.deltaMax));
+            const leftTotal  = gcItems.left.reduce((sum, item)  => sum + getItemSkillTotal(item,  label, false), 0);
+            const rightTotal = gcItems.right.reduce((sum, item) => sum + getItemSkillTotal(item, label, false), 0);
+            return { label, leftTotal, rightTotal, delta: rightTotal - leftTotal };
+          }).filter(t => t.leftTotal !== 0 || t.rightTotal !== 0)
+            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
           if (totals.length === 0) return null;
           return (
             <div style={{ marginTop:8, borderTop:`2px solid ${C.parchDark}`, paddingTop:8 }}>
@@ -2308,15 +2309,15 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                     </span>
                   </div>
                   <div style={{ textAlign:'center', fontSize:14, fontWeight:700 }}>
-                    <span style={{ color: t.deltaMax > 0 ? C.green : t.deltaMax < 0 ? C.danger : C.inkMid }}>
-                      {t.deltaMax > 0 ? '+' : ''}{t.deltaMax}
+                    <span style={{ color: t.delta > 0 ? C.green : t.delta < 0 ? C.danger : C.inkMid }}>
+                      {t.delta > 0 ? '+' : ''}{t.delta}
                     </span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
                     padding:'3px 7px', background:C.parchDark, borderRadius:3 }}>
                     <span style={{ fontSize:12, color:C.inkMid }}>{t.label}</span>
-                    <span style={{ fontSize:14, fontWeight:700, color: t.right75 < 0 ? C.decrease : C.green }}>
-                      {t.right75 > 0 ? '+' : ''}{t.right75}
+                    <span style={{ fontSize:14, fontWeight:700, color: t.rightTotal < 0 ? C.decrease : C.green }}>
+                      {t.rightTotal > 0 ? '+' : ''}{t.rightTotal}
                     </span>
                   </div>
                 </div>
@@ -3092,7 +3093,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.22</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.23</div>
           </div>
         </div>
         )}
