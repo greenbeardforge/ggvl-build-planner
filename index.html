@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.19</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.20</div>
           </div>
         </div>
       )}
@@ -1369,6 +1369,50 @@ const MW_GRAD      = 'linear-gradient(90deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#
 const MW_TEXT_GRAD = 'linear-gradient(135deg,#8aacc0 0%,#a898c4 20%,#c0aed4 38%,#a8c8c0 55%,#96aec8 72%,#b4a4c4 88%,#8ab0bc 100%)';
 const EXPERTS_TOOL_PCT = 0.75; // Expert's Tool: guarantees up to 75% of max roll
 
+// ── Tooltip — custom hover tooltip, 500ms delay, parchment/gold themed ────────
+// Wrap any element: <Tooltip text="...">{children}</Tooltip>
+function Tooltip({ text, children, position = 'top', wrapperStyle }) {
+  const [show, setShow] = React.useState(false);
+  const timerRef = React.useRef(null);
+  const onEnter = () => { timerRef.current = setTimeout(() => setShow(true), 500); };
+  const onLeave = () => { clearTimeout(timerRef.current); setShow(false); };
+  return (
+    <span style={{ position:'relative', display:'inline-flex', flexShrink:0, ...wrapperStyle }}
+      onMouseEnter={onEnter} onMouseLeave={onLeave}>
+      {children}
+      {show && (
+        <span style={{ position:'absolute',
+          [position === 'top' ? 'bottom' : 'top']:'100%', left:'50%', transform:'translateX(-50%)',
+          marginBottom: position === 'top' ? 5 : 0, marginTop: position === 'bottom' ? 5 : 0,
+          background:'var(--card-bg)', color:C.ink, border:`1px solid ${C.accent}`,
+          borderRadius:4, padding:'6px 9px', fontSize:11, fontFamily:"'Crimson Pro',serif",
+          fontWeight:400, whiteSpace:'normal', width:190, textAlign:'center', zIndex:500,
+          boxShadow:'0 4px 14px rgba(0,0,0,.6)', pointerEvents:'none', lineHeight:1.35 }}>
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ── Gear Comparison tooltip copy — single source of truth for all GC tooltips ─
+const GC_TIPS = {
+  dragHandle:  'Drag to reorder items, or move them between columns.',
+  range:       "Shows the full possible range for this roll, from minimum to maximum.",
+  rolled:      "Manually input the item's actual rolled stats from in-game.",
+  maxed:       'Assumes every roll hit its maximum value.',
+  expertsTool: "With an Expert's Tool, you can increase the Skill Rating up to 75% of the maximum roll.",
+  mwEntry:     'A masterwork property added to this item, a bonus beyond its base ratings from crafting or upgrades.',
+  mwOther:     "Manual entry for non-skill rating masterwork properties. For reference only, this won't affect delta or totals.",
+  addMw:       'Add a masterwork property to this item.',
+  addKit:      "Attach an Upgrade Kit to the item's own skill ratings.",
+  diceNotation:'The dice this rating rolls. The number next to it is your current or chosen value.',
+  importReset: 'Replaces the entire left column with your current Build Planner selection. Any rolls or edits here will be lost.',
+  updateBuild: "Adds any newly selected equipment from the Build Planner without touching what's here. Existing rolls stay intact.",
+  copyToComp:  'Copies the left column into the right, keeping your rolled values, so you can test upgrades against your current gear.',
+  totals:      'Sums every skill and rating across all items in each column, including negatives, for your full build\'s totals.',
+};
+
 // ── Gear Comparison ───────────────────────────────────────────────────────────
 // GearItemCard: one item in either column. Props:
 //   item        — GCItem {id,itemName,itemRatings,steppers,mwEntries,kitEntries}
@@ -1377,7 +1421,7 @@ const EXPERTS_TOOL_PCT = 0.75; // Expert's Tool: guarantees up to 75% of max rol
 //   onRemove()
 //   onDragStart(e), onDragOver(e), onDrop(e)
 //   catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS
-function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver, onDragEnd, onDrop, catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS }) {
+function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver, onDragLeave, onDragEnd, onDrop, isDragging, catalogueData, MW_SKILLS, MW_RATINGS, MW_OPTIONS }) {
   const [addingMw,       setAddingMw]       = React.useState(false);
   const [mwProp,         setMwProp]         = React.useState(MW_OPTIONS[0] || '');
   const [mwVal,          setMwVal]          = React.useState(1);
@@ -1490,14 +1534,17 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
   );
 
   return (
-    <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDrop={onDrop}
+    <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDragLeave={onDragLeave}
+      onDragEnd={onDragEnd} onDrop={onDrop}
       style={{ border:`1px solid ${C.parchDark}`, borderRadius:4, marginBottom:4,
-        background:C.parchMid, cursor:'grab' }}>
+        background:C.parchMid, cursor:'grab', opacity: isDragging ? 0.4 : 1 }}>
 
       {/* Item name row */}
       <div style={{ padding:'5px 8px', borderBottom:`1px solid ${C.parchDark}` }}>
         <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-          <span style={{ fontSize:12, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
+          <Tooltip text={GC_TIPS.dragHandle}>
+            <span style={{ fontSize:12, color:C.inkLight, cursor:'grab', flexShrink:0 }}>⠿</span>
+          </Tooltip>
           {item.isManual
             ? <input value={item.itemName} onChange={e => onUpdate({ itemName: e.target.value })}
                 style={{ flex:1, fontSize:13, fontWeight:700, color:C.ink, fontFamily:"'Cinzel',serif",
@@ -1516,26 +1563,32 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
           {side === 'right' && (
             <div style={{ display:'flex', gap:1, flexShrink:0, marginRight:'auto' }}>
               {['Range','Rolled','Maxed'].map(mode => (
-                <button key={mode} onClick={() => onUpdate({ rangeMode: mode.toLowerCase() })}
-                  style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                    padding:'1px 4px', cursor:'pointer', fontSize:10, flexShrink:0,
-                    fontFamily:"'Crimson Pro',serif",
-                    color: rangeMode === mode.toLowerCase() ? C.green : C.inkLight,
-                    fontWeight: rangeMode === mode.toLowerCase() ? 700 : 400 }}>
-                  {mode}
-                </button>
+                <Tooltip key={mode} text={GC_TIPS[mode.toLowerCase()]}>
+                  <button onClick={() => onUpdate({ rangeMode: mode.toLowerCase() })}
+                    style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                      padding:'1px 4px', cursor:'pointer', fontSize:10, flexShrink:0,
+                      fontFamily:"'Crimson Pro',serif",
+                      color: rangeMode === mode.toLowerCase() ? C.green : C.inkLight,
+                      fontWeight: rangeMode === mode.toLowerCase() ? 700 : 400 }}>
+                    {mode}
+                  </button>
+                </Tooltip>
               ))}
             </div>
           )}
-          <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
-            style={{ background:'none', border:`1px solid ${(addingMw || (item.mwEntries ?? []).length >= 1) ? C.parchDark : '#8aacc0'}`,
-            borderRadius:3, padding:'2px 7px', fontSize:11, flexShrink:0, fontWeight:700,
-            cursor: (addingMw || (item.mwEntries ?? []).length >= 1) ? 'default' : 'pointer',
-            opacity: (addingMw || (item.mwEntries ?? []).length >= 1) ? 0.35 : 1,
-            background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>+MW</button>
-          <button onClick={() => setAddingKit(true)} style={{ background:'none', border:`1px solid ${C.parchDark}`,
-            borderRadius:3, padding:'2px 7px', cursor:'pointer', fontSize:11, color:C.inkMid, flexShrink:0,
-            fontFamily:"'Crimson Pro',serif", display: addingKit ? 'none' : 'flex' }}>+Kit</button>
+          <Tooltip text={GC_TIPS.addMw}>
+            <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
+              style={{ background:'none', border:`1px solid ${(addingMw || (item.mwEntries ?? []).length >= 1) ? C.parchDark : '#8aacc0'}`,
+              borderRadius:3, padding:'2px 7px', fontSize:11, flexShrink:0, fontWeight:700,
+              cursor: (addingMw || (item.mwEntries ?? []).length >= 1) ? 'default' : 'pointer',
+              opacity: (addingMw || (item.mwEntries ?? []).length >= 1) ? 0.35 : 1,
+              background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>+MW</button>
+          </Tooltip>
+          <Tooltip text={GC_TIPS.addKit}>
+            <button onClick={() => setAddingKit(true)} style={{ background:'none', border:`1px solid ${C.parchDark}`,
+              borderRadius:3, padding:'2px 7px', cursor:'pointer', fontSize:11, color:C.inkMid, flexShrink:0,
+              fontFamily:"'Crimson Pro',serif", display: addingKit ? 'none' : 'flex' }}>+Kit</button>
+          </Tooltip>
         </div>
       </div>
 
@@ -1557,7 +1610,9 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
                 <span style={{ flex:1, color:C.inkMid }}>
                   <span style={{ fontSize:14 }}>{r.label}</span>
                   {!r.flat && (
-                    <span style={{ fontStyle:'italic', fontSize:12 }}> ({isNeg ? '-' : '+'}{r.dice}d4)</span>
+                    <Tooltip text={GC_TIPS.diceNotation} wrapperStyle={{ flexShrink:1 }}>
+                      <span style={{ fontStyle:'italic', fontSize:12 }}> ({isNeg ? '-' : '+'}{r.dice}d4)</span>
+                    </Tooltip>
                   )}
                 </span>
                 {r.flat ? (
@@ -1593,10 +1648,12 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
         {/* MW entries */}
         {(item.mwEntries ?? []).map((e, idx) => (
           <div key={idx} style={{ display:'flex', alignItems:'center', gap:4, fontSize:13, minHeight:22 }}>
-            <span style={{ flex:1, fontWeight:700,
-              background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-              {e.refOnly ? <React.Fragment>★ {e.label}</React.Fragment> : <React.Fragment>★ {e.prop} +{e.val}</React.Fragment>}
-            </span>
+            <Tooltip text={e.refOnly ? GC_TIPS.mwOther : GC_TIPS.mwEntry} wrapperStyle={{ flex:1 }}>
+              <span style={{ flex:1, fontWeight:700,
+                background:MW_TEXT_GRAD, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                {e.refOnly ? <React.Fragment>★ {e.label}</React.Fragment> : <React.Fragment>★ {e.prop} +{e.val}</React.Fragment>}
+              </span>
+            </Tooltip>
             {cancelBtn(() => removeMw(idx), true)}
           </div>
         ))}
@@ -1616,11 +1673,13 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
               <option value="__other__">— Other —</option>
             </select>
             {mwProp === '__other__' ? (
-              <input value={mwOtherLabel} onChange={e => setMwOtherLabel(e.target.value)}
-                placeholder="Property name…"
-                style={{ flex:1, minWidth:0, fontSize:12, padding:'3px 6px', borderRadius:3,
-                  border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
-                  fontFamily:"'Crimson Pro',serif" }} />
+              <Tooltip text={GC_TIPS.mwOther} wrapperStyle={{ flex:1 }}>
+                <input value={mwOtherLabel} onChange={e => setMwOtherLabel(e.target.value)}
+                  placeholder="Property name…"
+                  style={{ flex:1, minWidth:0, fontSize:12, padding:'3px 6px', borderRadius:3,
+                    border:`1px solid ${C.parchDark}`, background:'var(--input-bg)', color:C.ink,
+                    fontFamily:"'Crimson Pro',serif" }} />
+              </Tooltip>
             ) : (
               <div style={{ display:'flex', alignItems:'center', gap:2 }}>
                 {stepBtn(() => setMwVal(v => Math.max(1, v - 1)), '−', 'mw')}
@@ -1743,6 +1802,13 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
   const [addResults, setAddResults] = React.useState([]);
   const [addChoice,  setAddChoice]  = React.useState('');
   const [dragSrc,    setDragSrc]    = React.useState(null); // {side, idx}
+  const [dropIndicator, setDropIndicator] = React.useState(null); // {side, idx, edge:'top'|'bottom'}
+  const [expertsToolOn, setExpertsToolOn] = React.useState(() => localStorage.getItem('ggvl-experts-tool') !== 'false');
+  const toggleExpertsTool = () => setExpertsToolOn(prev => {
+    const next = !prev;
+    localStorage.setItem('ggvl-experts-tool', next);
+    return next;
+  });
 
   const searchAdd = v => {
     setAddQuery(v);
@@ -1778,6 +1844,32 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
       return { ...item, id: `sync_${idx}_${item.id}` };
     });
     updateGcItems({ left: leftItems });
+  };
+
+  // updateFromBuild: additive-only merge. Adds copies of newly-selected build
+  // items (matched by name/count) without touching existing left column items
+  // or their rolled steppers. Never removes anything.
+  const updateFromBuild = () => {
+    const existingCounts = {};
+    gcItems.left.forEach(item => { existingCounts[item.itemName] = (existingCounts[item.itemName] || 0) + 1; });
+    const buildCounts = {};
+    buildItems.forEach(name => { buildCounts[name] = (buildCounts[name] || 0) + 1; });
+    const additions = [];
+    Object.keys(buildCounts).forEach(name => {
+      const need = buildCounts[name] - (existingCounts[name] || 0);
+      if (need <= 0) return;
+      const cat = catalogueData.find(i => i.name === name);
+      for (let i = 0; i < need; i++) {
+        if (cat) {
+          const item = makeItem(cat, 'rolled');
+          additions.push({ ...item, id: `update_${Date.now()}_${Math.random()}` });
+        } else {
+          additions.push({ id: `update_${Date.now()}_${Math.random()}`, itemName: name,
+            itemRatings: [], steppers: {}, mwEntries: [], kitEntries: [], rangeMode: 'rolled' });
+        }
+      }
+    });
+    if (additions.length > 0) updateGcItems({ left: [...gcItems.left, ...additions] });
   };
 
   const addManualToLeft = () => {
@@ -1821,28 +1913,41 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const onDragOver = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-  const onDragEnd  = () => setDragSrc(null);
+  // onDragOver: tracks which half (top/bottom) of the hovered card the cursor
+  // is in, so the drop indicator line shows exactly where the item will land.
+  const onDragOver = (side, idx) => e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const edge = e.clientY < rect.top + rect.height / 2 ? 'top' : 'bottom';
+    setDropIndicator({ side, idx, edge });
+  };
+  const onDragLeave = () => setDropIndicator(null);
+  const onDragEnd  = () => { setDragSrc(null); setDropIndicator(null); };
 
   const onDrop = (targetSide, targetIdx) => e => {
     e.preventDefault();
-    if (!dragSrc) return;
+    if (!dragSrc) { setDropIndicator(null); return; }
     const { side: srcSide, idx: srcIdx } = dragSrc;
+    const edge = dropIndicator?.edge ?? 'top';
+    let insertIdx = targetIdx + (edge === 'bottom' ? 1 : 0);
     const item = gcItems[srcSide][srcIdx];
     if (srcSide === targetSide) {
       // reorder within column
       const col = [...gcItems[srcSide]];
       col.splice(srcIdx, 1);
-      col.splice(targetIdx, 0, item);
+      if (srcIdx < insertIdx) insertIdx -= 1;
+      col.splice(insertIdx, 0, item);
       updateGcItems({ [srcSide]: col });
     } else {
       // cross-column move
       const srcCol = gcItems[srcSide].filter((_,i) => i !== srcIdx);
       const tgtCol = [...gcItems[targetSide]];
-      tgtCol.splice(targetIdx, 0, item);
+      tgtCol.splice(insertIdx, 0, item);
       updateGcItems({ [srcSide]: srcCol, [targetSide]: tgtCol });
     }
     setDragSrc(null);
+    setDropIndicator(null);
   };
 
   const onDropColumn = (targetSide) => e => {
@@ -1871,9 +1976,11 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
     onUpdate: patch => updateItem(side, idx, patch),
     onRemove: () => removeItem(side, idx),
     onDragStart: onDragStart(side, idx),
-    onDragOver,
+    onDragOver: onDragOver(side, idx),
+    onDragLeave,
     onDragEnd,
     onDrop: onDrop(side, idx),
+    isDragging: !!(dragSrc && dragSrc.side === side && dragSrc.idx === idx),
     catalogueData, MW_OPTIONS, MW_SKILLS, MW_RATINGS
   });
 
@@ -1949,7 +2056,9 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
             <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
               color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Delta</div>
-            <div style={{ fontSize:11, color:C.glow, fontWeight:600, textAlign:'center', marginTop:2 }}>
+            <div onClick={toggleExpertsTool} title="Click to toggle Expert's Tool 75% display"
+              style={{ fontSize:11, color: expertsToolOn ? C.glow : C.inkLight, fontWeight:600,
+                textAlign:'center', marginTop:2, cursor:'pointer', opacity: expertsToolOn ? 1 : 0.5 }}>
               ⚙ Expert's Tool<br/>(75% max)
             </div>
           </div>
@@ -1959,20 +2068,33 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
         {/* Sync button + add row */}
         <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)', gap:6, marginBottom:6 }}>
           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-            <button onClick={syncFromBuild}
-              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                padding:'4px 10px', cursor:'pointer', fontSize:13, color:C.inkMid,
-                fontFamily:"'Crimson Pro',serif" }}>↺ Sync from Build</button>
+            <div style={{ display:'flex', gap:3 }}>
+              <Tooltip text={GC_TIPS.importReset} wrapperStyle={{ flex:1 }}>
+                <button onClick={syncFromBuild}
+                  style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                    padding:'4px 8px', cursor:'pointer', fontSize:12, color:C.inkMid, width:'100%',
+                    fontFamily:"'Crimson Pro',serif" }}>⟳ Import/Reset from Build</button>
+              </Tooltip>
+              <Tooltip text={GC_TIPS.updateBuild} wrapperStyle={{ flex:1 }}>
+                <button onClick={updateFromBuild}
+                  style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                    padding:'4px 8px', cursor:'pointer', fontSize:12, color:C.inkMid, width:'100%',
+                    fontFamily:"'Crimson Pro',serif" }}>+ Update from Build</button>
+              </Tooltip>
+            </div>
             <button onClick={addManualToLeft}
               style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
                 padding:'4px 10px', cursor:'pointer', fontSize:13, color:C.inkMid,
                 fontFamily:"'Crimson Pro',serif" }}>+ Add Manual</button>
-            <button onClick={copyToComparison}
-              style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
-                padding:'4px 10px', cursor:'pointer', fontSize:13, color:C.inkMid,
-                fontFamily:"'Crimson Pro',serif" }}>⇒ Copy to Comparison</button>
           </div>
-          <div />
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:0 }}>
+            <Tooltip text={GC_TIPS.copyToComp}>
+              <button onClick={copyToComparison}
+                style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                  padding:'4px 8px', cursor:'pointer', fontSize:12, color:C.inkMid, whiteSpace:'nowrap',
+                  fontFamily:"'Crimson Pro',serif" }}>⇒ Copy</button>
+            </Tooltip>
+          </div>
           {/* Add item — floating picker + manual */}
           <div style={{ position:'relative', display:'flex', flexDirection:'column', gap:3 }}>
             <div style={{ display:'flex', alignItems:'center', gap:3 }}>
@@ -2036,7 +2158,14 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
             <div key={idx} style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)',
               gap:6, marginBottom:4, alignItems:'start' }}>
               {/* Left card */}
-              <div onDragOver={onDragOver} onDrop={onDrop('left', idx)}>
+              <div onDragOver={onDragOver('left', idx)} onDragLeave={onDragLeave} onDrop={onDrop('left', idx)}
+                style={{ position:'relative',
+                  outline: (dropIndicator?.side === 'left' && dropIndicator?.idx === idx) ? `2px solid ${C.green}` : 'none',
+                  outlineOffset:2, borderRadius:4 }}>
+                {dropIndicator?.side === 'left' && dropIndicator?.idx === idx && (
+                  <div style={{ position:'absolute', left:0, right:0, height:2, background:C.green,
+                    zIndex:10, [dropIndicator.edge === 'top' ? 'top' : 'bottom']:-3 }} />
+                )}
                 {leftItem
                   ? <GearItemCard item={leftItem} {...cardProps('left', idx)} />
                   : <div style={{ border:`1px dashed ${C.parchDark}`, borderRadius:4,
@@ -2055,10 +2184,16 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                         </div>
                         <div style={{ textAlign:'center', fontSize:12, fontWeight:700,
                           display:'flex', justifyContent:'center', gap:3, flexWrap:'wrap' }}>
-                          <span style={{ color: d.delta75 > 0 ? C.glow : d.delta75 < 0 ? C.danger : C.inkMid }}>
-                            {d.delta75 > 0 ? '+' : ''}{d.delta75}⚙
-                          </span>
-                          <span style={{ color:C.inkLight }}>/</span>
+                          {expertsToolOn && (
+                            <React.Fragment>
+                              <Tooltip text={GC_TIPS.expertsTool}>
+                                <span style={{ color: d.delta75 > 0 ? C.glow : d.delta75 < 0 ? C.danger : C.inkMid }}>
+                                  {d.delta75 > 0 ? '+' : ''}{d.delta75}⚙
+                                </span>
+                              </Tooltip>
+                              <span style={{ color:C.inkLight }}>/</span>
+                            </React.Fragment>
+                          )}
                           <span style={{ color: d.deltaMax > 0 ? C.green : d.deltaMax < 0 ? C.danger : C.inkMid }}>
                             {d.deltaMax > 0 ? '+' : ''}{d.deltaMax}
                           </span>
@@ -2070,7 +2205,14 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
                 }
               </div>
               {/* Right card */}
-              <div onDragOver={onDragOver} onDrop={onDrop('right', idx)}>
+              <div onDragOver={onDragOver('right', idx)} onDragLeave={onDragLeave} onDrop={onDrop('right', idx)}
+                style={{ position:'relative',
+                  outline: (dropIndicator?.side === 'right' && dropIndicator?.idx === idx) ? `2px solid ${C.green}` : 'none',
+                  outlineOffset:2, borderRadius:4 }}>
+                {dropIndicator?.side === 'right' && dropIndicator?.idx === idx && (
+                  <div style={{ position:'absolute', left:0, right:0, height:2, background:C.green,
+                    zIndex:10, [dropIndicator.edge === 'top' ? 'top' : 'bottom']:-3 }} />
+                )}
                 {rightItem
                   ? <GearItemCard item={rightItem} {...cardProps('right', idx)} />
                   : <div style={{ border:`1px dashed ${C.parchDark}`, borderRadius:4,
@@ -2106,12 +2248,16 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           return (
             <div style={{ marginTop:8, borderTop:`2px solid ${C.parchDark}`, paddingTop:8 }}>
               <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)', gap:6, marginBottom:4 }}>
-                <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
-                  color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
+                <Tooltip text={GC_TIPS.totals} wrapperStyle={{ display:'flex' }}>
+                  <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
+                    color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px', cursor:'default' }}>TOTALS</div>
+                </Tooltip>
                 <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
                   color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Δ</div>
-                <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
-                  color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px' }}>TOTALS</div>
+                <Tooltip text={GC_TIPS.totals} wrapperStyle={{ display:'flex' }}>
+                  <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
+                    color:C.inkMid, letterSpacing:'.05em', padding:'2px 6px', cursor:'default' }}>TOTALS</div>
+                </Tooltip>
               </div>
               {totals.map(t => (
                 <div key={t.label} style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 92px minmax(0,1fr)',
@@ -2908,7 +3054,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.19</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.20</div>
           </div>
         </div>
         )}
