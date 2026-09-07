@@ -676,7 +676,7 @@ function CatalogueView({ data, dataStatus, search, setSearch, debouncedSearch, c
                dataStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.20</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.22</div>
           </div>
         </div>
       )}
@@ -1373,16 +1373,30 @@ const EXPERTS_TOOL_PCT = 0.75; // Expert's Tool: guarantees up to 75% of max rol
 // Wrap any element: <Tooltip text="...">{children}</Tooltip>
 function Tooltip({ text, children, position = 'top', wrapperStyle }) {
   const [show, setShow] = React.useState(false);
+  const [shiftX, setShiftX] = React.useState(0);
   const timerRef = React.useRef(null);
+  const tipRef = React.useRef(null);
   const onEnter = () => { timerRef.current = setTimeout(() => setShow(true), 500); };
-  const onLeave = () => { clearTimeout(timerRef.current); setShow(false); };
+  const onLeave = () => { clearTimeout(timerRef.current); setShow(false); setShiftX(0); };
+
+  React.useLayoutEffect(() => {
+    if (!show || !tipRef.current) return;
+    const rect = tipRef.current.getBoundingClientRect();
+    const margin = 8;
+    let shift = 0;
+    if (rect.left < margin) shift = margin - rect.left;
+    else if (rect.right > window.innerWidth - margin) shift = (window.innerWidth - margin) - rect.right;
+    if (shift !== 0) setShiftX(shift);
+  }, [show]);
+
   return (
     <span style={{ position:'relative', display:'inline-flex', flexShrink:0, ...wrapperStyle }}
       onMouseEnter={onEnter} onMouseLeave={onLeave}>
       {children}
       {show && (
-        <span style={{ position:'absolute',
-          [position === 'top' ? 'bottom' : 'top']:'100%', left:'50%', transform:'translateX(-50%)',
+        <span ref={tipRef} style={{ position:'absolute',
+          [position === 'top' ? 'bottom' : 'top']:'100%', left:'50%',
+          transform:`translateX(calc(-50% + ${shiftX}px))`,
           marginBottom: position === 'top' ? 5 : 0, marginTop: position === 'bottom' ? 5 : 0,
           background:'var(--card-bg)', color:C.ink, border:`1px solid ${C.accent}`,
           borderRadius:4, padding:'6px 9px', fontSize:11, fontFamily:"'Crimson Pro',serif",
@@ -1411,6 +1425,7 @@ const GC_TIPS = {
   updateBuild: "Adds any newly selected equipment from the Build Planner without touching what's here. Existing rolls stay intact.",
   copyToComp:  'Copies the left column into the right, keeping your rolled values, so you can test upgrades against your current gear.',
   totals:      'Sums every skill and rating across all items in each column, including negatives, for your full build\'s totals.',
+  maxAll:      "Sets all positive skill ratings to their maximum roll. Decreased ratings are left as-is.",
 };
 
 // ── Gear Comparison ───────────────────────────────────────────────────────────
@@ -1504,6 +1519,23 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
     onUpdate({ kitEntries: updated });
   };
 
+  // maxAllSteppers (left column only): sets every positive dice-based skill
+  // rating stepper, and every kit sub-rating stepper, to its max roll (dice*4).
+  // Flat ratings and negative (decreased) ratings are left untouched entirely.
+  // Does NOT change rangeMode.
+  const maxAllSteppers = () => {
+    const newSteppers = { ...item.steppers };
+    (item.itemRatings ?? []).forEach(r => {
+      if (!r.flat && (r.sign ?? 1) > 0) newSteppers[r.label] = r.dice * 4;
+    });
+    const newKitEntries = (item.kitEntries ?? []).map(ke => {
+      const newKSteppers = { ...(ke.steppers ?? {}) };
+      (ke.ratings ?? []).forEach(r => { newKSteppers[r.label] = r.dice * 4; });
+      return { ...ke, steppers: newKSteppers };
+    });
+    onUpdate({ steppers: newSteppers, kitEntries: newKitEntries });
+  };
+
   const stepBtn = (onClick, lbl, variant) => {
     const isMw  = variant === 'mw';
     const isNeg = variant === 'neg';
@@ -1575,6 +1607,16 @@ function GearItemCard({ item, side, onUpdate, onRemove, onDragStart, onDragOver,
                 </Tooltip>
               ))}
             </div>
+          )}
+          {side === 'left' && (
+            <Tooltip text={GC_TIPS.maxAll} wrapperStyle={{ marginRight:'auto' }}>
+              <button onClick={maxAllSteppers}
+                style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
+                  padding:'1px 4px', cursor:'pointer', fontSize:10, flexShrink:0,
+                  fontFamily:"'Crimson Pro',serif", color:C.inkLight, fontWeight:400 }}>
+                Max
+              </button>
+            </Tooltip>
           )}
           <Tooltip text={GC_TIPS.addMw}>
             <button onClick={() => { if (!addingMw && (item.mwEntries ?? []).length < 1) setAddingMw(true); }}
@@ -2056,7 +2098,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
             <div style={{ fontFamily:"'Cinzel',serif", fontSize:12, fontWeight:700,
               color:C.inkMid, letterSpacing:'.05em', textAlign:'center' }}>Delta</div>
-            <div onClick={toggleExpertsTool} title="Click to toggle Expert's Tool 75% display"
+            <div onClick={toggleExpertsTool}
               style={{ fontSize:11, color: expertsToolOn ? C.glow : C.inkLight, fontWeight:600,
                 textAlign:'center', marginTop:2, cursor:'pointer', opacity: expertsToolOn ? 1 : 0.5 }}>
               ⚙ Expert's Tool<br/>(75% max)
@@ -2092,7 +2134,7 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
               <button onClick={copyToComparison}
                 style={{ background:'none', border:`1px solid ${C.parchDark}`, borderRadius:3,
                   padding:'4px 8px', cursor:'pointer', fontSize:12, color:C.inkMid, whiteSpace:'nowrap',
-                  fontFamily:"'Crimson Pro',serif" }}>⇒ Copy</button>
+                  fontFamily:"'Crimson Pro',serif" }}>⇒ Copy All</button>
             </Tooltip>
           </div>
           {/* Add item — floating picker + manual */}
@@ -2159,12 +2201,10 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
               gap:6, marginBottom:4, alignItems:'start' }}>
               {/* Left card */}
               <div onDragOver={onDragOver('left', idx)} onDragLeave={onDragLeave} onDrop={onDrop('left', idx)}
-                style={{ position:'relative',
-                  outline: (dropIndicator?.side === 'left' && dropIndicator?.idx === idx) ? `2px solid ${C.green}` : 'none',
-                  outlineOffset:2, borderRadius:4 }}>
+                style={{ position:'relative' }}>
                 {dropIndicator?.side === 'left' && dropIndicator?.idx === idx && (
-                  <div style={{ position:'absolute', left:0, right:0, height:2, background:C.green,
-                    zIndex:10, [dropIndicator.edge === 'top' ? 'top' : 'bottom']:-3 }} />
+                  <div style={{ position:'absolute', left:0, right:0, height:3, background:C.green,
+                    borderRadius:2, zIndex:10, [dropIndicator.edge === 'top' ? 'top' : 'bottom']:-4 }} />
                 )}
                 {leftItem
                   ? <GearItemCard item={leftItem} {...cardProps('left', idx)} />
@@ -2206,12 +2246,10 @@ function GearComparison({ gcItems, updateGcItems, catalogueData, buildItems, MW_
               </div>
               {/* Right card */}
               <div onDragOver={onDragOver('right', idx)} onDragLeave={onDragLeave} onDrop={onDrop('right', idx)}
-                style={{ position:'relative',
-                  outline: (dropIndicator?.side === 'right' && dropIndicator?.idx === idx) ? `2px solid ${C.green}` : 'none',
-                  outlineOffset:2, borderRadius:4 }}>
+                style={{ position:'relative' }}>
                 {dropIndicator?.side === 'right' && dropIndicator?.idx === idx && (
-                  <div style={{ position:'absolute', left:0, right:0, height:2, background:C.green,
-                    zIndex:10, [dropIndicator.edge === 'top' ? 'top' : 'bottom']:-3 }} />
+                  <div style={{ position:'absolute', left:0, right:0, height:3, background:C.green,
+                    borderRadius:2, zIndex:10, [dropIndicator.edge === 'top' ? 'top' : 'bottom']:-4 }} />
                 )}
                 {rightItem
                   ? <GearItemCard item={rightItem} {...cardProps('right', idx)} />
@@ -3054,7 +3092,7 @@ function BuildPlanner() {
                catalogueStatus==='error'          ? '⚠ offline — no data' :
                '◌ loading…'}
             </div>
-            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.20</div>
+            <div style={{ color: C.inkLight, marginTop:2 }}>v5.2.22</div>
           </div>
         </div>
         )}
